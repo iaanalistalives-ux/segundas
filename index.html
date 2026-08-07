@@ -176,20 +176,36 @@ function leerPeriodo(filas){
   return {desde:desde, hasta:hasta, texto:txt};
 }
 
-/** Lee el bloque resumen de la hoja "Por Area". */
+/** Lee el bloque resumen de la hoja "Por Area".
+    No usa posiciones fijas de columna: busca la etiqueta y toma los valores
+    numéricos que vienen a su derecha, porque según cómo exporte el Sistema
+    el reporte puede quedar corrido una columna. */
 function leerResumen(filas){
   var r = {requeridas:0, base:0, base_label:'', base_mostrada:0, despachadas:0, segundas:0, pct:0, pctReq:0, precio:0};
-  for(var i=0;i<Math.min(filas.length,25);i++){
+  for(var i=0;i<Math.min(filas.length,30);i++){
     var f = filas[i]||[];
-    var etq = '';
-    for(var j=0;j<Math.min(f.length,3);j++){ var s = sinTilde(f[j]); if(s.length>5){ etq = s; break; } }
+    var etq = '', col = -1;
+    for(var j=0;j<Math.min(f.length,4);j++){
+      var s = sinTilde(f[j]);
+      if(s.length>5 && !/^[\d.,%]+$/.test(s)){ etq = s; col = j; break; }
+    }
     if(!etq) continue;
-    var cant = N(f[2]), p1 = N(f[3]), p2 = N(f[4]), pre = N(f[6]);
+    var nums = [];
+    for(var k=col+1;k<f.length;k++){
+      var v = f[k];
+      if(v===null || v===undefined || T(v)==='') continue;
+      var n = N(v);
+      if(isFinite(n)) nums.push(n);
+    }
+    var cant = nums.length>0 ? nums[0] : 0;
+    var p1   = nums.length>1 ? nums[1] : 0;
+    var p2   = nums.length>2 ? nums[2] : 0;
+    var pre  = nums.length>3 ? nums[nums.length-1] : 0;
     if(/REQUERID/.test(etq))            { r.requeridas = cant; }
     else if(/CORTADAS/.test(etq))       { r.base_mostrada = cant; r.base_label = 'CORTADAS'; }
     else if(/CONFECCIONADAS/.test(etq)) { r.base_mostrada = cant; r.base_label = 'CONFECCIONADAS'; }
     else if(/DESPACHADAS/.test(etq))    { r.despachadas = cant; r.pctDesp = p1; }
-    else if(/^SEGUNDAS/.test(etq))      { r.segundas = cant; r.pct = p1; r.pctReq = p2; r.precio = pre; }
+    else if(/^SEGUNDAS$/.test(etq))     { r.segundas = cant; r.pct = p1; r.pctReq = p2; r.precio = pre; }
   }
   /* El denominador válido es el que usa el propio reporte para sus porcentajes,
      que no siempre coincide con la cifra que muestra en pantalla. */
