@@ -60,6 +60,19 @@
   .chk .ok{color:var(--sage);font-weight:700;}
   .chk .no{color:var(--rose);font-weight:700;}
   .foot{font-size:11.5px;color:var(--stone);margin-top:24px;line-height:1.6;}
+  .clas{margin-left:30px;background:#fff;border:1px solid var(--warm);border-radius:8px;overflow:hidden;}
+  .clas .ch{background:var(--warm-light);padding:10px 14px;font-size:12.5px;color:#333;border-bottom:1px solid var(--warm);}
+  .clas .ch b{color:var(--taupe);}
+  .clas .cb{max-height:340px;overflow:auto;}
+  .clas table{width:100%;border-collapse:collapse;font-size:12px;}
+  .clas th{position:sticky;top:0;background:var(--warm-light);text-align:left;padding:6px 8px;color:var(--stone);
+    font-weight:700;border-bottom:1px solid var(--warm);white-space:nowrap;z-index:1;}
+  .clas td{padding:5px 8px;border-bottom:1px solid var(--warm-light);vertical-align:middle;}
+  .clas td.ob{color:var(--stone);font-size:11.5px;max-width:320px;}
+  .clas select{font-family:inherit;font-size:12px;border:1.5px solid var(--warm);border-radius:5px;padding:4px 6px;background:#fff;}
+  .clas select.hecho{border-color:var(--sage);color:var(--sage);font-weight:700;}
+  .clas .cf{padding:9px 14px;border-top:1px solid var(--warm);background:#fff;font-size:12px;color:var(--stone);}
+  .clas .cf button{margin-right:8px;}
   .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);
     border-top-color:#fff;border-radius:50%;animation:g .7s linear infinite;vertical-align:-2px;margin-right:6px;}
   @keyframes g{to{transform:rotate(360deg);}}
@@ -110,6 +123,7 @@
       <div class="per" id="periodo"></div>
       <div class="cards" id="cards"></div>
       <div id="avisos"></div>
+      <div id="clasif"></div>
     </div>
 
     <div class="paso">
@@ -320,6 +334,49 @@ function leerLiquidacion(wb, nombre){
     ocs: (function(){ var u={}; out.forEach(function(r){ u[r.oc]=1; }); return Object.keys(u).length; })()};
 }
 
+/* ---- CORTE: liquidación ya acumulada en el archivo INDICADOR (hoja TOTAL O-CORTE) ---- */
+function leerLiqHistorico(wb, nombre){
+  var ws = buscarHoja(wb, ['TOTAL O-CORTE','TOTAL O CORTE']); if(!ws) return null;
+  var filas = aFilas(ws);
+  var h = encabezado(filas, ['GRUPO','GRU-C','ESTILO','OC','OP','TELA','COLOR','FECHA','MES','ANO',
+    'SEMANA','GIRADAS','CORTADAS','HABILITADAS','INGRESO','TENDIDO','MERMA CORTE','SA','SAS'], 8);
+  if(!h) return null;
+  var porMes = {}, total = 0, cortadas = 0;
+  for(var i=h.fila+1;i<filas.length;i++){
+    var f = filas[i]||[], grupo = T(celda(f,h.idx,'GRUPO'));
+    if(!grupo || /^TOTAL/i.test(grupo)) continue;
+    var oc = T(celda(f,h.idx,'OC')).replace(/\.0$/,''); if(!oc) continue;
+    var fx = celda(f,h.idx,'FECHA');
+    var d = (fx instanceof Date) ? fx : fechaTexto(fx);
+    var anio = d ? d.getFullYear() : N(celda(f,h.idx,'ANO'));
+    var mes = d ? MESES[d.getMonth()] : sinTilde(celda(f,h.idx,'MES'));
+    if(mes === 'SEPTIEMBRE') mes = 'SETIEMBRE';
+    var mesNum = MESES.indexOf(mes)+1;
+    if(!anio || mesNum<1) continue;
+    var tela = T(celda(f,h.idx,'TELA'));
+    var fila = {
+      grupo:UP(grupo), cliente:UP(T(celda(f,h.idx,'GRU-C'))||UP(grupo).split('-')[0]).trim(),
+      estilo:T(celda(f,h.idx,'ESTILO')), oc:oc, op:T(celda(f,h.idx,'OP')).replace(/\.0$/,''),
+      cod_tela:UP(tela.split('-')[0]), tela:T(tela.split('-').slice(1).join('-')),
+      color:UP(celda(f,h.idx,'COLOR')), fecha: d ? iso(d) : '',
+      modulo:T(celda(f,h.idx,'SA')), partida:T(celda(f,h.idx,'SAS')),
+      ingreso:N(celda(f,h.idx,'INGRESO')), tendido:N(celda(f,h.idx,'TENDIDO')),
+      giradas:N(celda(f,h.idx,'GIRADAS')), cortadas:N(celda(f,h.idx,'CORTADAS')),
+      habilitadas:N(celda(f,h.idx,'HABILITADAS')), merma:N(celda(f,h.idx,'MERMA CORTE'))
+    };
+    var k = anio+'|'+mes;
+    if(!porMes[k]) porMes[k] = {anio:anio, mes:mes, mesNum:mesNum, filas:[], cortadas:0};
+    porMes[k].filas.push(fila); porMes[k].cortadas += fila.cortadas;
+    total++; cortadas += fila.cortadas;
+  }
+  var claves = Object.keys(porMes).sort(function(a,b){
+    var A = porMes[a], B = porMes[b]; return (A.anio-B.anio) || (A.mesNum-B.mesNum); });
+  if(!claves.length) return null;
+  return {tipo:'LIQH', archivo:nombre, porMes:porMes, claves:claves, filas:{length:total},
+    total:total, cortadas:cortadas,
+    etiquetaMeses: claves.map(function(k){ return porMes[k].mes; }).join(', ')};
+}
+
 /* ---- CORTE: inspecciones (export sin filtro: siempre sale todo) ---- */
 function leerInspeccion(wb, nombre){
   var ws = buscarHoja(wb, ['REPORTE']); if(!ws) return null;
@@ -391,8 +448,9 @@ function procesarArchivo(file, buf){
   var wb = XLSX.read(buf, {type:'array', cellDates:true});
 
   if(ESTADO.tipo === 'COR'){
-    var r = leerLiquidacion(wb, file.name) || leerInspeccion(wb, file.name) || leerConsolidado(wb, file.name);
-    if(!r) throw new Error('El archivo "'+file.name+'" no se reconoce. Para Corte se esperan: la liquidación de tela (hoja Liq_Corte), el reporte de inspección (hoja Reporte) o el consolidado de talleres (hoja DATA LIVES).');
+    var r = leerLiquidacion(wb, file.name) || leerLiqHistorico(wb, file.name)
+         || leerInspeccion(wb, file.name) || leerConsolidado(wb, file.name);
+    if(!r) throw new Error('El archivo "'+file.name+'" no se reconoce. Para Corte se esperan: la liquidación de tela (hoja Liq_Corte), el archivo INDICADOR con la hoja TOTAL O-CORTE, el reporte de inspección (hoja Reporte) o el consolidado de talleres (hoja DATA LIVES).');
     if(!r.filas.length) throw new Error('El archivo "'+file.name+'" no trae filas con datos.');
     return r;
   }
@@ -455,11 +513,19 @@ function validarCorte(archivos){
       v.periodoTexto = 'del '+fecha(liq.desde)+' al '+fecha(liq.hasta);
     }
   }
+  var lh = archivos['LIQH'];
+  if(lh){
+    avisos.push('El archivo INDICADOR trae la liquidación ya acumulada de <b>'+lh.claves.length+'</b> mes(es): '+
+      lh.etiquetaMeses+'. Se carga un mes por vez y cada uno <b>reemplaza</b> ese mes en el tablero.');
+    if(!v.mes){ v.anio = lh.porMes[lh.claves[lh.claves.length-1]].anio;
+      v.mes = lh.porMes[lh.claves[lh.claves.length-1]].mes;
+      v.periodoTexto = lh.claves.length+' meses: '+lh.etiquetaMeses; v.estado='CERRADO'; }
+  }
   if(archivos['INS'])
     avisos.push('El reporte de inspección no tiene filtro de fecha: siempre sale completo. Por eso <b>reemplaza toda la hoja</b> del tablero — lo que ya no esté en el Sistema desaparece, y lo nuevo entra. Es lo correcto, pero conviene subirlo completo y no recortado.');
   if(archivos['AUD'])
     avisos.push('El consolidado de talleres <b>reemplaza por completo</b> la hoja que llena Grecia en el tablero. Úsalo solo para la carga inicial: si Grecia ya escribió ahí, ese trabajo se pierde.');
-  if(!archivos['LIQ'] && !archivos['INS'] && !archivos['AUD'])
+  if(!archivos['LIQ'] && !archivos['LIQH'] && !archivos['INS'] && !archivos['AUD'])
     errores.push('No se reconoció ningún archivo de Corte.');
   return v;
 }
@@ -500,6 +566,10 @@ function pintar(){
       '<div class="cl">O/Corte del mes</div><div class="cs">'+fn(l.filas.length)+' registros · '+fn(l.cortadas)+
       ' prendas cortadas<br>Archivo: '+l.archivo+'</div></div>'
       : '<div class="card off"><div class="ct">Liquidación de tela</div><div class="cv">—</div><div class="cl">sin archivo</div></div>';
+    var lh2 = archivos['LIQH'];
+    if(lh2) html += '<div class="card"><div class="ct">Liquidación acumulada (INDICADOR)</div><div class="cv">'+
+      fn(lh2.claves.length)+'</div><div class="cl">meses: '+lh2.etiquetaMeses+'</div><div class="cs">'+
+      fn(lh2.total)+' registros · '+fn(lh2.cortadas)+' prendas cortadas<br>Archivo: '+lh2.archivo+'</div></div>';
     var s = archivos['INS'];
     html += s ? '<div class="card b"><div class="ct">Inspecciones de Corte</div><div class="cv">'+fn(s.filas.length)+'</div>'+
       '<div class="cl">inspecciones en el Sistema</div><div class="cs">'+fn(s.prendas)+' prendas · años '+s.anios.join(', ')+
@@ -528,6 +598,7 @@ function pintar(){
     if(ESTADO.tipo==='SEG') consultarMes('SEGUNDAS', v.anio, v.mes);
     else if(archivos['LIQ'] && v.mes) consultarMes('CORTE_LIQ', v.anio, v.mes);
     else el('guardarTxt').textContent = 'Los datos se envían al tablero de Calidad.';
+    if(ESTADO.tipo==='COR' && archivos['INS']) pedirOrigenes();
   }
 }
 
@@ -548,6 +619,72 @@ function consultarMes(tabla, anio, mes){
   }, function(){
     el('guardarTxt').innerHTML = '<span style="color:#B45309;">No se pudo consultar el tablero. Puedes guardar igual: si ya estaba, se reemplaza.</span>';
   });
+}
+
+/* ---- clasificación del origen de cada inspección ---- */
+function pedirOrigenes(){
+  var ins = ESTADO.archivos['INS']; if(!ins) return;
+  el('clasif').innerHTML = '<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando cuáles ya tienen origen clasificado…</div>';
+  jsonp(API+'?action=origenes', function(res){
+    var ya = (res && res.ok && res.origenes) ? res.origenes : {};
+    ins.filas.forEach(function(r){
+      var k = T(r.oc)+'|'+T(r.sec);
+      if(!r.origen && ya[k]) r.origen = ya[k];
+    });
+    pintarClasificacion();
+  }, function(){ pintarClasificacion(); });
+}
+
+function pintarClasificacion(){
+  var ins = ESTADO.archivos['INS']; if(!ins){ el('clasif').innerHTML=''; return; }
+  var pend = [];
+  ins.filas.forEach(function(r, i){ if(!T(r.origen)) pend.push(i); });
+  if(!pend.length){
+    el('clasif').innerHTML = '<div class="msg ok">Todas las inspecciones ya tienen su origen clasificado.</div>';
+    return;
+  }
+  var filas = pend.map(function(i){
+    var r = ins.filas[i];
+    return '<tr><td><b>'+T(r.oc)+'</b>'+(T(r.sec)?' · '+T(r.sec):'')+'</td><td>'+T(r.grupo)+'</td>'+
+      '<td>'+(T(r.fec_ini).split('-').reverse().join('/'))+'</td>'+
+      '<td style="text-align:right">'+fn(r.prendas)+'</td>'+
+      '<td class="ob">'+T(r.obs).substring(0,90)+'</td>'+
+      '<td><select data-i="'+i+'" class="selOrigen">'+
+      '<option value="">— elegir —</option><option value="TEXTIL">TEXTIL</option>'+
+      '<option value="CORTE">CORTE</option><option value="S/O">S/O</option></select></td></tr>';
+  }).join('');
+  el('clasif').innerHTML =
+    '<div class="clas"><div class="ch">Hay <b>'+pend.length+'</b> inspección(es) sin origen del defecto. '+
+    'Clasifícalas aquí y se guardan junto con la carga. Las que ya estaban clasificadas en el tablero se conservan solas.</div>'+
+    '<div class="cb"><table><tr><th>O/Corte · Sec</th><th>Grupo</th><th>Inspección</th><th style="text-align:right">Prendas</th>'+
+    '<th>Observación del Sistema</th><th>Origen</th></tr>'+filas+'</table></div>'+
+    '<div class="cf"><button class="btn sec" type="button" id="btnTodasSO">Marcar las que falten como S/O</button>'+
+    '<span id="pendTxt"></span></div></div>';
+
+  Array.prototype.forEach.call(document.querySelectorAll('.selOrigen'), function(sel){
+    sel.onchange = function(){
+      ins.filas[Number(sel.getAttribute('data-i'))].origen = sel.value;
+      sel.className = 'selOrigen' + (sel.value ? ' hecho' : '');
+      contarPendientes();
+    };
+  });
+  var b = el('btnTodasSO');
+  if(b) b.onclick = function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.selOrigen'), function(sel){
+      if(!sel.value){ sel.value = 'S/O'; sel.className = 'selOrigen hecho';
+        ins.filas[Number(sel.getAttribute('data-i'))].origen = 'S/O'; }
+    });
+    contarPendientes();
+  };
+  contarPendientes();
+}
+
+function contarPendientes(){
+  var ins = ESTADO.archivos['INS']; if(!ins) return;
+  var n = 0; ins.filas.forEach(function(r){ if(!T(r.origen)) n++; });
+  var t = el('pendTxt');
+  if(t) t.innerHTML = n ? 'Quedan <b>'+n+'</b> sin clasificar. Puedes guardar igual y completarlas después en el tablero.'
+                        : 'Todas clasificadas.';
 }
 
 var jsonpN = 0;
@@ -588,6 +725,16 @@ function guardar(){
       verificar:{tabla:'CORTE_LIQ', anio:v.anio, mes:v.mes, esperado:archivos['LIQ'].filas.length},
       payload:{token:TOKEN, tabla:'CORTE_LIQ', anio:v.anio, mes:v.mes, mes_num:v.mesNum, desde:v.desde,
         hasta:v.hasta, usuario:usuario, archivo:archivos['LIQ'].archivo, filas:archivos['LIQ'].filas}});
+    if(archivos['LIQH']){
+      var lh3 = archivos['LIQH'];
+      lh3.claves.forEach(function(k){
+        var m = lh3.porMes[k];
+        envios.push({nombre:'liquidación de '+m.mes+' '+m.anio,
+          verificar:{tabla:'CORTE_LIQ', anio:m.anio, mes:m.mes, esperado:m.filas.length},
+          payload:{token:TOKEN, tabla:'CORTE_LIQ', anio:m.anio, mes:m.mes, mes_num:m.mesNum,
+            desde:'', hasta:'', usuario:usuario, archivo:lh3.archivo, filas:m.filas}});
+      });
+    }
     if(archivos['INS']) envios.push({nombre:'inspecciones de Corte',
       verificar:{tabla:'CORTE_INS', esperado:archivos['INS'].filas.length},
       payload:{token:TOKEN, tabla:'CORTE_INS', usuario:usuario, archivo:archivos['INS'].archivo, filas:archivos['INS'].filas}});
@@ -671,7 +818,8 @@ function leerArchivos(lista){
 function terminar(errores){
   var c = '', esperados = (ESTADO.tipo==='SEG')
     ? [['PIEZA','Piezas'],['PRENDA','Prendas']]
-    : [['LIQ','Liquidación de tela'],['INS','Inspecciones de Corte'],['AUD','Consolidado de talleres (opcional)']];
+    : [['LIQ','Liquidación de tela del mes'],['LIQH','Liquidación acumulada (archivo INDICADOR)'],
+       ['INS','Inspecciones de Corte'],['AUD','Consolidado de talleres (carga inicial)']];
   esperados.forEach(function(t){
     var a = ESTADO.archivos[t[0]];
     c += '<div>'+(a ? '<span class="ok">✓</span> '+t[1]+': '+a.archivo
@@ -689,7 +837,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#tipoSel .mbtn'), functi
     ESTADO.tipo = b.getAttribute('data-t');
     ESTADO.archivos = {}; ESTADO.datos = null;
     inp.value=''; el('chk').innerHTML=''; el('salida').innerHTML='';
-    el('resultado').classList.add('hide');
+    el('resultado').classList.add('hide'); el('clasif').innerHTML='';
     el('tituloDrop').textContent = TITULO[ESTADO.tipo];
     el('ayudaDrop').textContent = AYUDA[ESTADO.tipo];
   };
@@ -697,7 +845,7 @@ Array.prototype.forEach.call(document.querySelectorAll('#tipoSel .mbtn'), functi
 el('btnGuardar').onclick = guardar;
 el('btnOtro').onclick = function(){
   ESTADO.archivos = {}; ESTADO.datos = null;
-  inp.value=''; el('chk').innerHTML=''; el('salida').innerHTML='';
+  inp.value=''; el('chk').innerHTML=''; el('salida').innerHTML=''; el('clasif').innerHTML='';
   el('resultado').classList.add('hide');
 };
 el('ayudaDrop').textContent = AYUDA.SEG;
