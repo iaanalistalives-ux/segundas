@@ -369,6 +369,7 @@
           <div style="align-self:end">
             <button class="btn" type="button" id="r_ver">Ver</button>
             <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
+            <button class="btn sec" type="button" id="r_sem" style="margin-left:6px">Últimos 7 días</button>
           </div>
         </div>
         <div style="margin-top:12px">
@@ -1179,6 +1180,26 @@ function dmy2iso(v){
 }
 function iso2dmy(v){ var s2=T(v); return /^\d{4}-\d{2}-\d{2}/.test(s2)
   ? s2.substring(0,10).split('-').reverse().join('/') : s2; }
+/* los campos de fecha: al entrar se selecciona todo (para escribir encima sin borrar),
+   se ponen las barras solas y Enter confirma */
+function ligarFecha(id, alEnter){
+  var c = el(id); if(!c) return;
+  c.onfocus = function(){ try{ c.select(); }catch(e){} };
+  c.onclick = function(){ try{ c.select(); }catch(e){} };
+  c.oninput = function(){
+    var v = c.value.replace(/[^\d\/]/g,'');
+    var d = v.replace(/\//g,'');
+    if(d.length > 8) d = d.substring(0,8);
+    if(d.length > 4) v = d.substring(0,2)+'/'+d.substring(2,4)+'/'+d.substring(4);
+    else if(d.length > 2) v = d.substring(0,2)+'/'+d.substring(2);
+    else v = d;
+    c.value = v;
+  };
+  c.onkeydown = function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); if(alEnter) alEnter(); }
+  };
+}
+
 function fechaValida(id, cont){
   var v=dmy2iso(el(id).value);
   if(!v){ msg(cont,'err','La fecha debe escribirse como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.');
@@ -1324,6 +1345,11 @@ function copiarTabla(){
 
 function hoyReporte(){
   var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
+}
+function semanaReporte(){
+  var d=new Date(), a=new Date(d.getTime()-6*86400000);
+  function dmy(x){ return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear(); }
+  el('r_desde').value=dmy(a); el('r_hasta').value=dmy(d); verReporte();
 }
 
 /* ---------------- formulario: auditoría de Corte ---------------- */
@@ -1621,6 +1647,7 @@ function guardarTint(){
   el('t_guardar').disabled = true;
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
+    TINT_TODO = null;   /* hay un registro nuevo: el reporte vuelve a traer los datos */
     setTimeout(function(){
       jsonp(API+'?action=buscar_partida&partida='+encodeURIComponent(p), function(res){
         el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
@@ -1729,8 +1756,13 @@ el('btnOtro').onclick = function(){
   el('resultado').classList.add('hide');
 };
 
+['a_fecha','d_fecha','t_fecha'].forEach(function(id){ ligarFecha(id); });
+ligarFecha('r_desde', verReporte);
+ligarFecha('r_hasta', verReporte);
+
 el('r_ver').onclick = verReporte;
 el('r_hoy').onclick = hoyReporte;
+el('r_sem').onclick = semanaReporte;
 el('r_print').onclick = function(){ window.print(); };
 el('r_copiar').onclick = copiarTabla;
 
