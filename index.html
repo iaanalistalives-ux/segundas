@@ -373,8 +373,33 @@ function leerLiqHistorico(wb, nombre){
     var A = porMes[a], B = porMes[b]; return (A.anio-B.anio) || (A.mesNum-B.mesNum); });
   if(!claves.length) return null;
   return {tipo:'LIQH', archivo:nombre, porMes:porMes, claves:claves, filas:{length:total},
-    total:total, cortadas:cortadas,
+    total:total, cortadas:cortadas, origenesOC: leerOrigenesHistoricos(wb),
     etiquetaMeses: claves.map(function(k){ return porMes[k].mes; }).join(', ')};
+}
+
+/* El archivo INDICADOR trae en su pestaña de rechazadas el ORIGEN clasificado a mano.
+   Se hereda por O/Corte, y solo cuando esa O/Corte tiene un único origen en todo el archivo. */
+function leerOrigenesHistoricos(wb){
+  var ws = buscarHoja(wb, ['O-CORTE RECHAZADAS','O CORTE RECHAZADAS']); if(!ws) return null;
+  var filas = aFilas(ws);
+  var h = encabezado(filas, ['ORDEN DE CORTE','ORIGEN','GRUPO','N PRENDAS','MES'], 3);
+  if(!h) return null;
+  var vistos = {};
+  for(var i=h.fila+1;i<filas.length;i++){
+    var f = filas[i]||[];
+    var oc = T(celda(f,h.idx,'ORDEN DE CORTE')).replace(/\.0$/,'');
+    var org = UP(celda(f,h.idx,'ORIGEN'));
+    if(!oc || !org || /^TOTAL/i.test(oc)) continue;
+    var base = oc.split('-')[0].trim();
+    if(!vistos[base]) vistos[base] = {};
+    vistos[base][org] = 1;
+  }
+  var mapa = {}, unicos = 0, conflicto = 0;
+  Object.keys(vistos).forEach(function(k){
+    var ors = Object.keys(vistos[k]);
+    if(ors.length === 1){ mapa[k] = ors[0]; unicos++; } else { conflicto++; }
+  });
+  return {mapa:mapa, unicos:unicos, conflicto:conflicto};
 }
 
 /* ---- CORTE: inspecciones (export sin filtro: siempre sale todo) ---- */
@@ -622,6 +647,18 @@ function consultarMes(tabla, anio, mes){
 }
 
 /* ---- clasificación del origen de cada inspección ---- */
+function heredarDelIndicador(){
+  var ins = ESTADO.archivos['INS'], lh = ESTADO.archivos['LIQH'];
+  if(!ins || !lh || !lh.origenesOC) return 0;
+  var mapa = lh.origenesOC.mapa, n = 0;
+  ins.filas.forEach(function(r){
+    if(T(r.origen)) return;
+    var base = T(r.oc).split('-')[0].trim();
+    if(mapa[base]){ r.origen = mapa[base]; r.heredado = true; n++; }
+  });
+  return n;
+}
+
 function pedirOrigenes(){
   var ins = ESTADO.archivos['INS']; if(!ins) return;
   el('clasif').innerHTML = '<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando cuáles ya tienen origen clasificado…</div>';
@@ -631,16 +668,20 @@ function pedirOrigenes(){
       var k = T(r.oc)+'|'+T(r.sec);
       if(!r.origen && ya[k]) r.origen = ya[k];
     });
+    ESTADO.heredados = heredarDelIndicador();
     pintarClasificacion();
-  }, function(){ pintarClasificacion(); });
+  }, function(){ ESTADO.heredados = heredarDelIndicador(); pintarClasificacion(); });
 }
 
 function pintarClasificacion(){
   var ins = ESTADO.archivos['INS']; if(!ins){ el('clasif').innerHTML=''; return; }
   var pend = [];
   ins.filas.forEach(function(r, i){ if(!T(r.origen)) pend.push(i); });
+  var her = ESTADO.heredados
+    ? '<div class="msg ok" style="margin-left:0;">Se heredó el origen de <b>'+ESTADO.heredados+
+      '</b> inspección(es) desde el archivo INDICADOR, cruzando por O/Corte.</div>' : '';
   if(!pend.length){
-    el('clasif').innerHTML = '<div class="msg ok">Todas las inspecciones ya tienen su origen clasificado.</div>';
+    el('clasif').innerHTML = her || '<div class="msg ok">Todas las inspecciones ya tienen su origen clasificado.</div>';
     return;
   }
   var filas = pend.map(function(i){
@@ -653,7 +694,7 @@ function pintarClasificacion(){
       '<option value="">— elegir —</option><option value="TEXTIL">TEXTIL</option>'+
       '<option value="CORTE">CORTE</option><option value="S/O">S/O</option></select></td></tr>';
   }).join('');
-  el('clasif').innerHTML =
+  el('clasif').innerHTML = her +
     '<div class="clas"><div class="ch">Hay <b>'+pend.length+'</b> inspección(es) sin origen del defecto. '+
     'Clasifícalas aquí y se guardan junto con la carga. Las que ya estaban clasificadas en el tablero se conservan solas.</div>'+
     '<div class="cb"><table><tr><th>O/Corte · Sec</th><th>Grupo</th><th>Inspección</th><th style="text-align:right">Prendas</th>'+
