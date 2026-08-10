@@ -56,6 +56,20 @@
   .drop .sm{font-size:12.5px;color:var(--stone);}
   .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   @media(max-width:820px){.cards{grid-template-columns:1fr;}}
+  #v_rep table{width:100%;border-collapse:collapse;font-size:12px;}
+  #v_rep th{background:var(--warm-light);color:var(--stone);font-weight:700;padding:6px 8px;
+    border:1px solid var(--warm);text-align:left;white-space:nowrap;}
+  #v_rep td{padding:5px 8px;border:1px solid var(--warm-light);}
+  #v_rep td.num,#v_rep th.num{text-align:right;}
+  @media print{
+    @page{size:A4 landscape;margin:10mm;}
+    *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+    body{background:#fff!important;}
+    .side,.no-print,h1,.sub{display:none!important;}
+    .main{padding:0;max-width:none;}
+    .vista:not(.active){display:none!important;}
+    .card{border:none;padding:0;}
+  }
   .kc{background:#fff;border:1px solid var(--warm);border-radius:8px;padding:14px 16px;border-top:3px solid var(--sage);}
   .kc.b{border-top-color:var(--slate);} .kc.c{border-top-color:var(--taupe);}
   .kc.off{opacity:.5;border-top-color:var(--warm);}
@@ -124,6 +138,8 @@
       <em>rptResLiqCorteTela1 + Rpt_Inspeccion_Corte1</em></button>
 
     <div class="grp">Consultar</div>
+    <button class="it" type="button" data-v="v_rep">Partidas revisadas
+      <em>el cuadro que se envía por correo</em></button>
     <a class="it" href="dashboard.html" target="_blank" rel="noopener" style="text-decoration:none">Ver el tablero
       <em>indicadores en vivo · lo que ve el Sr. Oscar</em></a>
 
@@ -146,7 +162,8 @@
         <div class="grid">
           <div style="grid-column:span 2">
             <label>O/Corte <span class="req">*</span></label>
-            <input type="text" id="a_oc" placeholder="50166-4" autocomplete="off">
+            <input type="text" id="a_oc" placeholder="50166-4" list="dl_ocs" autocomplete="off">
+            <div class="hint">Al escribir aparecen las O/Corte ya registradas</div>
           </div>
           <div style="align-self:end">
             <button class="btn" type="button" id="a_buscar">Continuar</button>
@@ -256,7 +273,8 @@
         <div class="ch">Si es nueva, se abre el formulario para registrarla; si ya fue revisada antes, aparece todo su historial para agregar la revisión de hoy.</div>
         <div class="grid">
           <div style="grid-column:span 2"><label>Partida <span class="req">*</span></label>
-            <input type="text" id="t_partida" autocomplete="off"></div>
+            <input type="text" id="t_partida" list="dl_partidas" autocomplete="off">
+            <div class="hint">Al escribir aparecen las partidas ya revisadas</div></div>
           <div style="align-self:end"><button class="btn" type="button" id="t_buscar">Continuar</button></div>
         </div>
         <div id="t_hist"></div>
@@ -319,10 +337,54 @@
       </div>
     </section>
 
+    <!-- ============ REPORTE DE PARTIDAS REVISADAS ============ -->
+    <section class="vista" id="v_rep">
+      <h1>Partidas revisadas</h1>
+      <div class="sub">El mismo cuadro que se enviaba desde el Excel: elige las fechas, revisa e imprime o copia.</div>
+
+      <div class="card no-print">
+        <h2>Período</h2>
+        <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar.</div>
+        <div class="grid">
+          <div><label>Desde</label><input type="date" id="r_desde"></div>
+          <div><label>Hasta</label><input type="date" id="r_hasta"></div>
+          <div style="align-self:end">
+            <button class="btn" type="button" id="r_ver">Ver</button>
+            <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button class="btn sec" type="button" id="r_print">Imprimir</button>
+          <button class="btn sec" type="button" id="r_copiar" style="margin-left:8px">Copiar la tabla</button>
+          <span class="hint" id="r_copiah" style="margin-left:8px"></span>
+        </div>
+      </div>
+
+      <div id="r_salida"></div>
+
+      <div class="card" id="r_bloque" style="display:none">
+        <div id="r_titulo" style="font-size:16px;font-weight:700;color:var(--petrol);margin-bottom:12px"></div>
+        <div class="grid g2" style="align-items:start">
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px">Kg totales auditados por taller</div>
+            <table id="r_kg"></table>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px">Resumen</div>
+            <table id="r_res"></table>
+          </div>
+        </div>
+        <div style="font-size:13px;font-weight:700;margin:18px 0 6px">Partidas revisadas</div>
+        <div style="overflow:auto"><table id="r_tabla"></table></div>
+      </div>
+    </section>
+
   </main>
 </div>
 
 <datalist id="dl_telas"></datalist>
+<datalist id="dl_ocs"></datalist>
+<datalist id="dl_partidas"></datalist>
 <datalist id="dl_auditores"></datalist>
 <datalist id="dl_tint"></datalist>
 
@@ -1097,6 +1159,95 @@ function ligarTela(inpCod, inpArt, hintId){
   };
 }
 
+/* ---------------- índices para autocompletar ---------------- */
+function datalistPar(id, lista){
+  var d=el(id); if(!d) return;
+  d.innerHTML = lista.map(function(x){
+    return '<option value="'+String(x.v).replace(/"/g,'&quot;')+'" label="'+
+      String(x.d||'').replace(/"/g,'&quot;')+'">'; }).join('');
+}
+function cargarIndices(){
+  jsonp(API+'?action=indices', function(res){
+    if(!res||!res.ok) return;
+    datalistPar('dl_ocs', res.ocs||[]);
+    datalistPar('dl_partidas', res.partidas||[]);
+  }, function(){});
+}
+
+/* ---------------- reporte de partidas revisadas ---------------- */
+var TINT_TODO = null;
+
+function cargarTint(fn2){
+  if(TINT_TODO){ fn2(); return; }
+  msg('r_salida','warn','<span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Trayendo las revisiones…');
+  jsonp(API+'?action=read_tint', function(res){
+    TINT_TODO = (res&&res.ok) ? (res.filas||[]) : [];
+    el('r_salida').innerHTML='';
+    fn2();
+  }, function(){ msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+}
+
+function verReporte(){
+  cargarTint(function(){
+    var d1=T(el('r_desde').value), d2=T(el('r_hasta').value);
+    if(!d1||!d2){ msg('r_salida','err','Elige las dos fechas.'); return; }
+    if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=d1; el('r_hasta').value=d2; }
+    var f = TINT_TODO.filter(function(r){ return r.fecha && r.fecha>=d1 && r.fecha<=d2; })
+      .sort(function(a,b){ return (a.fecha<b.fecha?-1:(a.fecha>b.fecha?1:
+        (T(a.tintoreria)<T(b.tintoreria)?-1:1))); });
+
+    el('r_bloque').style.display = 'block';
+    el('r_titulo').textContent = 'Del '+d1.split('-').reverse().join('/')+' al '+d2.split('-').reverse().join('/')+
+      ' · '+f.length+' revisión(es)';
+
+    if(!f.length){
+      el('r_kg').innerHTML=''; el('r_res').innerHTML='';
+      el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones registradas en esas fechas.</td></tr>';
+      return;
+    }
+
+    var kg={}, tot=0;
+    f.forEach(function(r){ var k=T(r.tintoreria)||'SIN TINTORERÍA';
+      kg[k]=(kg[k]||0)+N(r.peso); tot+=N(r.peso); });
+    var kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
+    el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
+      kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
+      '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(tot)+'</b></td></tr>';
+
+    var est={}; f.forEach(function(r){ var e=T(r.estado)||'SIN ESTADO'; est[e]=(est[e]||0)+1; });
+    var ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
+    var pa={}; f.forEach(function(r){ pa[T(r.partida).toUpperCase()]=1; });
+    el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
+      ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
+      '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(Object.keys(pa).length)+'</b></td></tr>';
+
+    el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
+      '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
+      f.map(function(r){
+        return '<tr><td>'+esc(T(r.fecha).split('-').reverse().join('/'))+'</td>'+
+          '<td>'+esc(r.tintoreria)+'</td><td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
+          '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
+          '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
+      }).join('');
+  });
+}
+
+function copiarTabla(){
+  var t=el('r_tabla');
+  if(!t.innerHTML){ el('r_copiah').textContent='Primero dale a Ver.'; return; }
+  var rango=document.createRange(); rango.selectNode(t);
+  var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(rango);
+  try{
+    document.execCommand('copy');
+    el('r_copiah').textContent='Copiado: pégalo en el correo con Ctrl+V.';
+  }catch(e){ el('r_copiah').textContent='No se pudo copiar: selecciona la tabla y usa Ctrl+C.'; }
+  sel.removeAllRanges();
+}
+
+function hoyReporte(){
+  var h=hoyISO(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
+}
+
 /* ---------------- formulario: auditoría de Corte ---------------- */
 var AUD_EXISTE = null;
 
@@ -1407,8 +1558,14 @@ el('btnOtro').onclick = function(){
   el('resultado').classList.add('hide');
 };
 
-['a_fecha','d_fecha','t_fecha'].forEach(function(id){ el(id).value = hoyISO(); });
+el('r_ver').onclick = verReporte;
+el('r_hoy').onclick = hoyReporte;
+el('r_print').onclick = function(){ window.print(); };
+el('r_copiar').onclick = copiarTabla;
+
+['a_fecha','d_fecha','t_fecha','r_desde','r_hasta'].forEach(function(id){ el(id).value = hoyISO(); });
 cargarCatalogos();
+cargarIndices();
 
 </script>
 </body>
