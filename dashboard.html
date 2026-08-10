@@ -103,14 +103,15 @@
       <div class="wsel">Año: <span id="anioBtns" class="modesel"></span></div>
       <div class="wsel">Mes: <select id="mesSel"></select></div>
       <button class="btn" type="button" id="btnRefresh">Actualizar</button>
-      <button class="btn" type="button" id="btnExport">Exportar para enviar</button>
+      <button class="btn" type="button" id="btnExport">Exportar este dashboard</button>
       <button class="btn" type="button" id="btnPrint">Imprimir</button>
       <div class="est" id="est"></div>
     </div>
 
     <div id="avisoSnap" class="note" style="display:none;border-left-color:var(--slate);">
-      <b>Esta es una foto del tablero, no la versión en vivo.</b> Los números son los que había al momento de exportarlo
-      y no cambian aunque Calidad registre algo nuevo. Para ver el dato actualizado hay que entrar al enlace del tablero.
+      <b>Esta es una foto de un dashboard, no la versión en vivo.</b> Trae solo el indicador que se exportó, con los
+      números que había en ese momento; no cambian aunque Calidad registre algo nuevo. Para el dato actualizado hay
+      que entrar al enlace del dashboard.
     </div>
 
     <div class="tabs no-print">
@@ -333,17 +334,70 @@ function error(m){
   el('estado').innerHTML=esc(m)+' <button class="btn no-print" type="button" onclick="arranque()" style="margin-left:8px">Reintentar</button>';
 }
 
+var CARGA={s1:false,s2:false,s3:false,s4:false};
+var SECDATA={s1:'read',s2:'read_corte',s3:'read_deftex',s4:'read_tint'};
+var NOMBRE={s1:'segundas',s2:'rechazos de Corte',s3:'defectos textiles',s4:'reporte diario'};
+
 function arranque(){
   if(SNAPSHOT){
     SEG=SNAPSHOT.seg; COR=SNAPSHOT.cor; DEF=SNAPSHOT.def; TIN=SNAPSHOT.tin;
+    var s0=SNAPSHOT.sec||'s1';
+    CARGA={s1:false,s2:false,s3:false,s4:false}; CARGA[s0]=true;
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs .tb'),function(x){
+      if(x.getAttribute('data-sec')!==s0) x.style.display='none';
+      else x.classList.add('active'); });
+    Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(x){ x.classList.remove('active'); });
+    el(s0).classList.add('active'); ST.sec=s0;
     el('estado').style.display='none'; el('dash').style.display='block';
-    document.body.setAttribute('data-snap','1');
-    listo();
+    listo(); render();
     return;
   }
-  cargando('Cargando indicadores de segundas…');
-  jsonp(API+'?action=read', function(res){
-    if(!res||!res.ok){ error('El tablero respondió con un error.'); return; }
+  CARGA={s1:false,s2:false,s3:false,s4:false};
+  SEG={tot:[],det:[]}; COR={aud:[],liq:[],ins:[]}; DEF={cab:[],det:[]}; TIN=[];
+  var inicial = hashSec() || 's1';
+  abrirSec(inicial, true);
+}
+
+function hashSec(){
+  var h=(location.hash||'').replace('#','').toLowerCase();
+  var m={segundas:'s1',corte:'s2',defectos:'s3',tintoreria:'s4',tinto:'s4'};
+  return m[h]||'';
+}
+
+/** Trae los datos de una pestaña solo la primera vez que se abre. */
+function cargarSec(sec, listoFn){
+  if(CARGA[sec]){ listoFn(); return; }
+  cargando('Cargando '+NOMBRE[sec]+'…');
+  jsonp(API+'?action='+SECDATA[sec], function(res){
+    if(!res||!res.ok){ error('El tablero respondió con un error al traer '+NOMBRE[sec]+'.'); return; }
+    guardarSec(sec,res);
+    CARGA[sec]=true;
+    el('estado').style.display='none';
+    listoFn();
+  }, function(){ error('No se pudo conectar con el tablero. Revisa tu conexión.'); });
+}
+
+function guardarSec(sec,res){
+  if(sec==='s1'){ leerSegundas(res); return; }
+  if(sec==='s2'){ COR={aud:res.aud||[],liq:res.liq||[],ins:res.ins||[]}; return; }
+  if(sec==='s3'){ DEF={cab:res.cab||[],det:res.det||[]}; return; }
+  TIN=res.filas||[];
+}
+
+function abrirSec(sec, primera){
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs .tb'),function(x){
+    x.classList.remove('active'); if(x.getAttribute('data-sec')===sec) x.classList.add('active'); });
+  Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(x){ x.classList.remove('active'); });
+  el(sec).classList.add('active');
+  ST.sec=sec;
+  cargarSec(sec, function(){
+    if(primera){ el('dash').style.display='block'; }
+    listo();
+    render();
+  });
+}
+
+function leerSegundas(res){
     SEG={tot:[],det:[]};
     (res.tot||[]).forEach(function(r){ SEG.tot.push({anio:N(r.anio),mes:T(r.mes).toUpperCase(),
       mesNum:N(r.mes_num),tipo:T(r.tipo).toUpperCase(),estado:T(r.estado).toUpperCase(),
@@ -354,19 +408,6 @@ function arranque(){
       tipo:T(r.tipo).toUpperCase(),origen:T(r.origen).toUpperCase(),cliente:T(r.cliente).toUpperCase(),
       grupo:T(r.grupo).toUpperCase(),area:T(r.area).toUpperCase(),motivo:T(r.motivo).toUpperCase(),
       cant:N(r.cant)}); });
-    cargando('Cargando rechazos de Corte…');
-    jsonp(API+'?action=read_corte', function(r2){
-      COR = (r2&&r2.ok) ? {aud:r2.aud||[], liq:r2.liq||[], ins:r2.ins||[]} : {aud:[],liq:[],ins:[]};
-      cargando('Cargando defectos textiles y tintorería…');
-      jsonp(API+'?action=read_deftex', function(r3){
-        DEF = (r3&&r3.ok) ? {cab:r3.cab||[], det:r3.det||[]} : {cab:[],det:[]};
-        jsonp(API+'?action=read_tint', function(r4){
-          TIN = (r4&&r4.ok) ? (r4.filas||[]) : [];
-          listo();
-        }, function(){ TIN=[]; listo(); });
-      }, function(){ DEF={cab:[],det:[]}; listo(); });
-    }, function(){ COR={aud:[],liq:[],ins:[]}; listo(); });
-  }, function(){ error('No se pudo conectar con el tablero. Revisa tu conexión.'); });
 }
 
 function listo(){
@@ -385,9 +426,9 @@ function listo(){
   ver(DEF.cab,'Defectos textiles','oc'); ver(TIN,'Reporte diario','partida');
   ANIOS=Object.keys(an).map(Number).sort();
   if(!ANIOS.length){ error('El tablero todavía no tiene datos cargados.'); return; }
-  ST.anio=ANIOS[ANIOS.length-1]; ST.mes='TODOS';
+  if(ST.anio!=='CMP' && ANIOS.indexOf(ST.anio)<0) ST.anio=ANIOS[ANIOS.length-1];
   el('estado').style.display='none'; el('dash').style.display='block';
-  pintarAnios(); pintarMeses(); render();
+  pintarAnios(); pintarMeses();
 }
 var ANIOS=[];
 
@@ -931,11 +972,18 @@ function secTint(){
 /* ---------------- render ---------------- */
 function render(){
   try{
-    secSegundas(); secCorte(); secDefectos(); secTint();
-    el('pie').innerHTML='Fuente: Google Sheet LIVES_SEGUNDAS_2026 · segundas '+SEG.tot.length+' meses y '+
-      fn(SEG.det.length)+' líneas · auditoría de Corte '+fn(COR.aud.length)+' registros · liquidación '+
-      fn(COR.liq.length)+' · inspecciones '+fn(COR.ins.length)+' · planillas con defectos '+fn(DEF.cab.length)+
-      ' · revisiones de tintorería '+fn(TIN.length)+'. El tablero muestra lo que Calidad tenga registrado hasta ahora.';
+    if(ST.sec==='s1' && CARGA.s1) secSegundas();
+    if(ST.sec==='s2' && CARGA.s2) secCorte();
+    if(ST.sec==='s3' && CARGA.s3) secDefectos();
+    if(ST.sec==='s4' && CARGA.s4) secTint();
+    var p=[];
+    if(CARGA.s1) p.push('segundas '+SEG.tot.length+' meses');
+    if(CARGA.s2) p.push('auditoría de Corte '+fn(COR.aud.length)+' registros · liquidación '+fn(COR.liq.length)+
+      ' · inspecciones '+fn(COR.ins.length));
+    if(CARGA.s3) p.push('planillas con defectos '+fn(DEF.cab.length));
+    if(CARGA.s4) p.push('revisiones de tintorería '+fn(TIN.length));
+    el('pie').innerHTML='Fuente: Google Sheet LIVES_SEGUNDAS_2026 · '+p.join(' · ')+
+      '. Cada indicador se trae al abrirlo, por eso el tablero abre rápido.';
     if(RARAS.length){
       el('pie').innerHTML += '<br><br><span style="color:#B45309;font-weight:700;">'+
         RARAS.length+' registro(s) con una fecha imposible</span>, seguramente un error de tipeo. '+
@@ -944,7 +992,8 @@ function render(){
         (RARAS.length>6?' y '+(RARAS.length-6)+' más.':'.');
     }
     if(SNAPSHOT){
-      el('est').textContent='Foto tomada el '+SNAPSHOT.fecha;
+      var nom2={s1:'Segundas',s2:'Rechazos de Corte',s3:'Defectos textiles',s4:'Reporte diario'};
+      el('est').textContent=(nom2[SNAPSHOT.sec||'s1'])+' · foto del '+SNAPSHOT.fecha;
       el('btnRefresh').style.display='none'; el('btnExport').style.display='none';
       el('avisoSnap').style.display='block';
     }else{
@@ -954,20 +1003,21 @@ function render(){
 }
 
 Array.prototype.forEach.call(document.querySelectorAll('.tabs .tb'),function(b){
-  b.onclick=function(){
-    Array.prototype.forEach.call(document.querySelectorAll('.tabs .tb'),function(x){ x.classList.remove('active'); });
-    b.classList.add('active');
-    Array.prototype.forEach.call(document.querySelectorAll('.sec'),function(s){ s.classList.remove('active'); });
-    el(b.getAttribute('data-sec')).classList.add('active');
-    ST.sec=b.getAttribute('data-sec');
-  };
+  b.onclick=function(){ abrirSec(b.getAttribute('data-sec')); };
 });
+window.addEventListener('hashchange',function(){ var s=hashSec(); if(s && s!==ST.sec) abrirSec(s); });
 function exportar(){
   var b=el('btnExport'), txt=b.textContent;
   b.disabled=true; b.innerHTML='Preparando…';
   fetch(location.href, {cache:'no-store'}).then(function(r){ return r.text(); }).then(function(html){
-    var datos={seg:SEG, cor:COR, def:DEF, tin:TIN,
-      fecha:new Date().toLocaleString('es-PE')};
+    /* se exporta solo el indicador que está abierto: el archivo pesa menos y va al grano */
+    var sec=ST.sec;
+    var datos={sec:sec, fecha:new Date().toLocaleString('es-PE'),
+      seg:{tot:[],det:[]}, cor:{aud:[],liq:[],ins:[]}, def:{cab:[],det:[]}, tin:[]};
+    if(sec==='s1') datos.seg=SEG;
+    if(sec==='s2') datos.cor=COR;
+    if(sec==='s3') datos.def=DEF;
+    if(sec==='s4') datos.tin=TIN;
     var inyec='SNAPSHOT='+JSON.stringify(datos).replace(/<\/script/gi,'<\\/script')+';';
     var salida=html.replace('/*__SNAP__*/', inyec);
     if(salida===html) throw new Error('marcador');
@@ -975,7 +1025,8 @@ function exportar(){
     var a=document.createElement('a');
     var d=new Date(), p2=function(n){ return ('0'+n).slice(-2); };
     a.href=URL.createObjectURL(blob);
-    a.download='Indicadores_Calidad_Textil_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.html';
+    var nom={s1:'Segundas',s2:'Rechazos_de_Corte',s3:'Defectos_textiles',s4:'Reporte_diario'};
+    a.download=nom[ST.sec]+'_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.html';
     document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     b.disabled=false; b.innerHTML=txt;
@@ -985,7 +1036,7 @@ function exportar(){
   });
 }
 el('btnExport').onclick=exportar;
-el('btnRefresh').onclick=function(){ arranque(); };
+el('btnRefresh').onclick=function(){ var s=ST.sec; CARGA[s]=false; abrirSec(s); };
 el('btnPrint').onclick=function(){ window.print(); };
 arranque();
 
