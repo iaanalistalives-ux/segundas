@@ -141,19 +141,15 @@
       <div class="sub">Reemplaza al archivo <b>CONSOLIDADO RECH REPORTE CORTE - TALLERES 2026</b>.<br>Escribe la O/Corte: si ya existe, aparece su historial y solo agregas qué pasó después.</div>
 
       <div class="card">
-        <h2>O/Corte</h2>
-        <div class="ch">Con su ítem, como en la planilla: 50166-4</div>
+        <h2>Empieza por la O/Corte</h2>
+        <div class="ch">Con su ítem, como en la planilla: 50166-4. Si es nueva, se abre el formulario para registrarla; si ya existe, aparece su historial para agregar un seguimiento.</div>
         <div class="grid">
-          <div>
+          <div style="grid-column:span 2">
             <label>O/Corte <span class="req">*</span></label>
             <input type="text" id="a_oc" placeholder="50166-4" autocomplete="off">
           </div>
-          <div>
-            <label>Fecha <span class="req">*</span></label>
-            <input type="date" id="a_fecha">
-          </div>
           <div style="align-self:end">
-            <button class="btn sec" type="button" id="a_buscar">Buscar</button>
+            <button class="btn" type="button" id="a_buscar">Continuar</button>
           </div>
         </div>
         <div id="a_hist"></div>
@@ -163,7 +159,11 @@
         <h2 id="a_titulo">Nueva auditoría</h2>
         <div class="ch" id="a_sub">Completa los datos de la planilla</div>
 
-        <div class="grid" id="a_bloque1">
+        <div class="grid">
+          <div><label>Fecha del registro <span class="req">*</span></label><input type="date" id="a_fecha">
+            <div class="hint" id="a_fh">Fecha de esta auditoría</div></div>
+        </div>
+        <div class="grid" id="a_bloque1" style="margin-top:12px">
           <div><label>Partida</label><input type="text" id="a_partida" autocomplete="off"></div>
           <div><label>Estilo</label><input type="text" id="a_estilo" autocomplete="off"></div>
           <div><label>Grupo textil</label><input type="text" id="a_grupo" placeholder="THY-1049" autocomplete="off"></div>
@@ -253,11 +253,11 @@
 
       <div class="card">
         <h2>Partida</h2>
-        <div class="ch">Si ya fue revisada antes, aparece todo su historial</div>
+        <div class="ch">Si es nueva, se abre el formulario para registrarla; si ya fue revisada antes, aparece todo su historial para agregar la revisión de hoy.</div>
         <div class="grid">
-          <div><label>Partida <span class="req">*</span></label><input type="text" id="t_partida" autocomplete="off"></div>
-          <div><label>Fecha <span class="req">*</span></label><input type="date" id="t_fecha"></div>
-          <div style="align-self:end"><button class="btn sec" type="button" id="t_buscar">Buscar</button></div>
+          <div style="grid-column:span 2"><label>Partida <span class="req">*</span></label>
+            <input type="text" id="t_partida" autocomplete="off"></div>
+          <div style="align-self:end"><button class="btn" type="button" id="t_buscar">Continuar</button></div>
         </div>
         <div id="t_hist"></div>
       </div>
@@ -266,8 +266,9 @@
         <h2 id="t_titulo">Nuevo registro</h2>
         <div class="ch" id="t_sub"></div>
         <div class="grid">
+          <div><label>Fecha de la revisión <span class="req">*</span></label><input type="date" id="t_fecha"></div>
           <div><label>Tintorería <span class="req">*</span></label><input type="text" id="t_tint" list="dl_tint" autocomplete="off"></div>
-          <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="t_art" autocomplete="off"></div>
+          <div><label>Artículo</label><input type="text" id="t_art" autocomplete="off"></div>
           <div><label>Grupo</label><input type="text" id="t_grupo" autocomplete="off"></div>
           <div><label>Color</label><input type="text" id="t_color" autocomplete="off"></div>
           <div><label>Peso (kg)</label><input type="number" id="t_peso" min="0" step="0.01"></div>
@@ -1105,7 +1106,8 @@ function pintarHistorialAud(res){
     AUD_EXISTE = null;
     c.innerHTML = '<div class="msg ok">O/Corte nueva. Completa los datos de la auditoría.</div>';
     el('a_titulo').textContent = 'Nueva auditoría';
-    el('a_sub').textContent = 'Completa los datos de la planilla';
+    el('a_fh').textContent = 'Fecha de esta auditoría';
+    el('a_sub').textContent = 'O/Corte no registrada: completa los datos de la planilla.';
     el('a_bloque1').style.display = '';
     estadosAud('AUDITORIA');
     el('a_form').classList.remove('hide');
@@ -1124,7 +1126,8 @@ function pintarHistorialAud(res){
     ' · '+fn(ult.prendas)+' prendas</div><div class="hb">'+filas+'</div>'+
     '<div class="ac">Estado actual: <b>'+esc(ult.estado)+'</b> · '+h.length+' registro(s)</div></div>';
   el('a_titulo').textContent = 'Agregar seguimiento';
-  el('a_sub').textContent = 'Los datos de la planilla se conservan: solo registra qué pasó después.';
+  el('a_sub').textContent = 'Los datos de la planilla se conservan: solo registra la fecha, el estado nuevo y qué pasó.';
+  el('a_fh').textContent = 'Fecha del seguimiento';
   el('a_bloque1').style.display = 'none';
   estadosAud('SEGUIMIENTO');
   el('a_form').classList.remove('hide');
