@@ -193,7 +193,7 @@
         <div class="ch" id="a_sub">Completa los datos de la planilla</div>
 
         <div class="grid">
-          <div><label>Fecha del registro <span class="req">*</span></label><input type="date" id="a_fecha">
+          <div><label>Fecha del registro <span class="req">*</span></label><input type="text" id="a_fecha" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
             <div class="hint" id="a_fh">Fecha de esta auditoría</div></div>
         </div>
         <div class="grid" id="a_bloque1" style="margin-top:12px">
@@ -243,7 +243,7 @@
         <h2>Datos de la planilla</h2>
         <div class="ch">Solo marca los defectos que encontraste: el total y el % se calculan solos</div>
         <div class="grid">
-          <div><label>Fecha <span class="req">*</span></label><input type="date" id="d_fecha"></div>
+          <div><label>Fecha <span class="req">*</span></label><input type="text" id="d_fecha" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
           <div><label>Partida</label><input type="text" id="d_partida" autocomplete="off"></div>
           <div><label>O/Corte <span class="req">*</span></label><input type="text" id="d_oc" autocomplete="off"></div>
           <div><label>Grupo textil</label><input type="text" id="d_grupo" placeholder="THY-1049" autocomplete="off"></div>
@@ -302,7 +302,7 @@
         <h2 id="t_titulo">Nuevo registro</h2>
         <div class="ch" id="t_sub"></div>
         <div class="grid">
-          <div><label>Fecha de la revisión <span class="req">*</span></label><input type="date" id="t_fecha"></div>
+          <div><label>Fecha de la revisión <span class="req">*</span></label><input type="text" id="t_fecha" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
           <div><label>Tintorería <span class="req">*</span></label><input type="text" id="t_tint" list="dl_tint" autocomplete="off"></div>
           <div><label>Artículo</label><input type="text" id="t_art" autocomplete="off"></div>
           <div><label>Grupo</label><input type="text" id="t_grupo" autocomplete="off"></div>
@@ -364,8 +364,8 @@
         <h2>Período</h2>
         <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar.</div>
         <div class="grid">
-          <div><label>Desde</label><input type="date" id="r_desde"></div>
-          <div><label>Hasta</label><input type="date" id="r_hasta"></div>
+          <div><label>Desde</label><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+          <div><label>Hasta</label><input type="text" id="r_hasta" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
           <div style="align-self:end">
             <button class="btn" type="button" id="r_ver">Ver</button>
             <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
@@ -1160,6 +1160,31 @@ function pideUsuario(cont){
   el('usuario').focus(); return false;
 }
 function hoyISO(){ var d=new Date(); return iso(d); }
+/* en LIVES la fecha se escribe y se muestra siempre dd/mm/aaaa */
+function hoyDMY(){ var d=new Date();
+  return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear(); }
+function dmy2iso(v){
+  var s2=T(v); if(!s2) return '';
+  var m=s2.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){
+    var d=Number(m[1]), mes=Number(m[2]), a=Number(m[3]); if(a<100) a+=2000;
+    if(mes<1 || mes>12 || d<1 || d>31 || a<2000 || a>2100) return '';
+    /* que la fecha exista de verdad: 31/02 no pasa */
+    var f=new Date(a,mes-1,d);
+    if(f.getFullYear()!==a || f.getMonth()!==mes-1 || f.getDate()!==d) return '';
+    return a+'-'+('0'+mes).slice(-2)+'-'+('0'+d).slice(-2);
+  }
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s2)) return s2;
+  return '';
+}
+function iso2dmy(v){ var s2=T(v); return /^\d{4}-\d{2}-\d{2}/.test(s2)
+  ? s2.substring(0,10).split('-').reverse().join('/') : s2; }
+function fechaValida(id, cont){
+  var v=dmy2iso(el(id).value);
+  if(!v){ msg(cont,'err','La fecha debe escribirse como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.');
+    el(id).focus(); return ''; }
+  return v;
+}
 
 /* ---------------- catálogos ---------------- */
 function opciones(sel, lista, vacio){
@@ -1242,9 +1267,9 @@ function cargarTint(fn2){
 
 function verReporte(){
   cargarTint(function(){
-    var d1=T(el('r_desde').value), d2=T(el('r_hasta').value);
-    if(!d1||!d2){ msg('r_salida','err','Elige las dos fechas.'); return; }
-    if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=d1; el('r_hasta').value=d2; }
+    var d1=dmy2iso(el('r_desde').value), d2=dmy2iso(el('r_hasta').value);
+    if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
+    if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
     var f = TINT_TODO.filter(function(r){ return r.fecha && r.fecha>=d1 && r.fecha<=d2; })
       .sort(function(a,b){ return (a.fecha<b.fecha?-1:(a.fecha>b.fecha?1:
         (T(a.tintoreria)<T(b.tintoreria)?-1:1))); });
@@ -1298,7 +1323,7 @@ function copiarTabla(){
 }
 
 function hoyReporte(){
-  var h=hoyISO(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
+  var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
 }
 
 /* ---------------- formulario: auditoría de Corte ---------------- */
@@ -1309,14 +1334,14 @@ function vaciarFormAud(){
   ['a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma',
    'a_desp','a_audt','a_auditor','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
   el('a_modulo').value=''; el('a_origen').value='S/O'; el('a_estado').value='';
-  el('a_fecha').value = hoyISO();
+  el('a_fecha').value = hoyDMY();
   el('a_codh').textContent = 'Al escribirlo se completa el artículo solo';
   el('a_salida').innerHTML = '';
 }
 function vaciarFormTint(){
   ['t_tint','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
-  el('t_estado').value=''; el('t_fecha').value = hoyISO();
+  el('t_estado').value=''; el('t_fecha').value = hoyDMY();
   el('t_salida').innerHTML = '';
 }
 
@@ -1433,7 +1458,8 @@ function guardarAud(){
   var estado = T(el('a_estado').value);
   if(!estado){ msg('a_salida','err','Elige el estado.'); return; }
   var tipo = AUD_EXISTE ? 'SEGUIMIENTO' : 'AUDITORIA';
-  var r = {tipo_reg:tipo, oc:oc, fecha:T(el('a_fecha').value) || hoyISO(),
+  var fA = fechaValida('a_fecha','a_salida'); if(!fA) return;
+  var r = {tipo_reg:tipo, oc:oc, fecha:fA,
     partida:T(el('a_partida').value), estilo:T(el('a_estilo').value), grupo:UP(el('a_grupo').value),
     cod_tela:UP(el('a_cod').value), articulo:T(el('a_art').value), color:UP(el('a_color').value),
     prendas:N(el('a_prendas').value), merma:N(el('a_merma').value), despachadas:N(el('a_desp').value),
@@ -1466,7 +1492,7 @@ function limpiarAud(){
   OC_ACTUAL='';
   ['a_oc','a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma','a_desp',
    'a_audt','a_auditor','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
-  el('a_fecha').value = hoyISO();
+  el('a_fecha').value = hoyDMY();
   el('a_hist').innerHTML=''; el('a_salida').innerHTML='';
   el('a_form').classList.add('hide');
   el('a_bloque1').style.display='';
@@ -1505,7 +1531,8 @@ function guardarDef(){
     var c = N(i.value); if(c>0) det.push({defecto:i.getAttribute('data-def'), cant:c});
   });
   if(!det.length){ msg('d_salida','err','No marcaste ningún defecto.'); return; }
-  var r = {fecha:T(el('d_fecha').value)||hoyISO(), partida:partida, oc:oc,
+  var fD = fechaValida('d_fecha','d_salida'); if(!fD) return;
+  var r = {fecha:fD, partida:partida, oc:oc,
     grupo:UP(el('d_grupo').value), cliente:UP(el('d_grupo').value).split('-')[0],
     color:UP(el('d_color').value), cod_tela:UP(el('d_cod').value), articulo:T(el('d_art').value),
     estilo:T(el('d_estilo').value), prendas:prendas, motivo:T(el('d_motivo').value),
@@ -1529,7 +1556,7 @@ function limpiarDef(soloDefectos){
   if(soloDefectos) return;
   ['d_partida','d_oc','d_grupo','d_color','d_estilo','d_cod','d_art','d_prendas','d_audt','d_tint',
    'd_audl','d_motivo'].forEach(function(id){ el(id).value=''; });
-  el('d_fecha').value = hoyISO();
+  el('d_fecha').value = hoyDMY();
   el('d_salida').innerHTML='';
 }
 
@@ -1586,7 +1613,8 @@ function guardarTint(){
   if(!p){ msg('t_salida','err','Falta la partida.'); return; }
   var estado = T(el('t_estado').value);
   if(!estado){ msg('t_salida','err','Elige el estado.'); return; }
-  var r = {fecha:T(el('t_fecha').value)||hoyISO(), tintoreria:UP(el('t_tint').value), partida:p,
+  var fT = fechaValida('t_fecha','t_salida'); if(!fT) return;
+  var r = {fecha:fT, tintoreria:UP(el('t_tint').value), partida:p,
     articulo:T(el('t_art').value), grupo:UP(el('t_grupo').value), color:UP(el('t_color').value),
     peso:N(el('t_peso').value), auditores:UP(el('t_auditores').value), estado:estado,
     obs:T(el('t_obs').value), origen:UP(el('t_origen').value)};
@@ -1609,7 +1637,7 @@ function guardarTint(){
 function limpiarTint(){
   ['t_partida','t_tint','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
-  el('t_estado').value=''; el('t_fecha').value=hoyISO();
+  el('t_estado').value=''; el('t_fecha').value=hoyDMY();
   el('t_hist').innerHTML=''; el('t_salida').innerHTML='';
   el('t_form').classList.add('hide');
   TIN_EXISTE=null;
@@ -1706,7 +1734,7 @@ el('r_hoy').onclick = hoyReporte;
 el('r_print').onclick = function(){ window.print(); };
 el('r_copiar').onclick = copiarTabla;
 
-['a_fecha','d_fecha','t_fecha','r_desde','r_hasta'].forEach(function(id){ el(id).value = hoyISO(); });
+['a_fecha','d_fecha','t_fecha','r_desde','r_hasta'].forEach(function(id){ el(id).value = hoyDMY(); });
 cargarCatalogos();
 setTimeout(cargarIndices, 400);
 
