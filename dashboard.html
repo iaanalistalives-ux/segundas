@@ -338,7 +338,17 @@ var CARGA={s1:false,s2:false,s3:false,s4:false};
 var SECDATA={s1:'read',s2:'read_corte',s3:'read_deftex',s4:'read_tint'};
 var NOMBRE={s1:'segundas',s2:'rechazos de Corte',s3:'defectos textiles',s4:'reporte diario'};
 
+/* dentro del portal las pestañas y el encabezado sobran: el panel lateral ya elige el indicador */
+var EMBEBIDO = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
+function ajustarEmbebido(){
+  if(!EMBEBIDO) return;
+  var h=document.querySelector('.header'); if(h) h.style.display='none';
+  var t=document.querySelector('.tabs'); if(t) t.style.display='none';
+  var w=document.querySelector('.wrap'); if(w){ w.style.padding='14px 18px 30px'; w.style.maxWidth='none'; }
+}
+
 function arranque(){
+  ajustarEmbebido();
   if(SNAPSHOT){
     SEG=SNAPSHOT.seg; COR=SNAPSHOT.cor; DEF=SNAPSHOT.def; TIN=SNAPSHOT.tin;
     var s0=SNAPSHOT.sec||'s1';
