@@ -157,13 +157,20 @@
       <div class="sub">Reemplaza al archivo <b>CONSOLIDADO RECH REPORTE CORTE - TALLERES 2026</b>.<br>Escribe la O/Corte: si ya existe, aparece su historial y solo agregas qué pasó después.</div>
 
       <div class="card">
-        <h2>Empieza por la O/Corte</h2>
-        <div class="ch">Con su ítem, como en la planilla: 50166-4. Si es nueva, se abre el formulario para registrarla; si ya existe, aparece su historial para agregar un seguimiento.</div>
+        <h2>Empieza por la partida o la O/Corte</h2>
+        <div class="ch">Si es nueva, se abre el formulario para registrarla; si ya existe, aparece su historial para agregar un seguimiento.</div>
         <div class="grid">
-          <div style="grid-column:span 2">
-            <label>O/Corte <span class="req">*</span></label>
-            <input type="text" id="a_oc" placeholder="50166-4" list="dl_ocs" autocomplete="off">
-            <div class="hint">Al escribir aparecen las O/Corte ya registradas</div>
+          <div>
+            <label>Buscar por</label>
+            <select id="a_modo">
+              <option value="partida">Partida</option>
+              <option value="oc">O/Corte</option>
+            </select>
+          </div>
+          <div>
+            <label id="a_lbl">Partida <span class="req">*</span></label>
+            <input type="text" id="a_oc" placeholder="25-546068" list="dl_pcorte" autocomplete="off">
+            <div class="hint" id="a_hint">Al escribir aparecen las partidas ya registradas</div>
           </div>
           <div style="align-self:end">
             <button class="btn" type="button" id="a_buscar">Continuar</button>
@@ -181,6 +188,8 @@
             <div class="hint" id="a_fh">Fecha de esta auditoría</div></div>
         </div>
         <div class="grid" id="a_bloque1" style="margin-top:12px">
+          <div><label>O/Corte <span class="req">*</span></label><input type="text" id="a_ocnew" placeholder="50166-4" autocomplete="off">
+            <div class="hint">Con su ítem, como en la planilla</div></div>
           <div><label>Partida</label><input type="text" id="a_partida" autocomplete="off"></div>
           <div><label>Estilo</label><input type="text" id="a_estilo" autocomplete="off"></div>
           <div><label>Grupo textil</label><input type="text" id="a_grupo" placeholder="THY-1049" autocomplete="off"></div>
@@ -384,6 +393,7 @@
 
 <datalist id="dl_telas"></datalist>
 <datalist id="dl_ocs"></datalist>
+<datalist id="dl_pcorte"></datalist>
 <datalist id="dl_partidas"></datalist>
 <datalist id="dl_auditores"></datalist>
 <datalist id="dl_tint"></datalist>
@@ -1160,17 +1170,21 @@ function ligarTela(inpCod, inpArt, hintId){
 }
 
 /* ---------------- índices para autocompletar ---------------- */
-function datalistPar(id, lista){
+function llenarLista(id, texto){
   var d=el(id); if(!d) return;
-  d.innerHTML = lista.map(function(x){
-    return '<option value="'+String(x.v).replace(/"/g,'&quot;')+'" label="'+
-      String(x.d||'').replace(/"/g,'&quot;')+'">'; }).join('');
+  var arr=String(texto||'').split(',').filter(Boolean);
+  d.innerHTML = arr.map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'; }).join('');
+  return arr.length;
 }
+var INDICES_OK=false;
 function cargarIndices(){
+  if(INDICES_OK) return;
   jsonp(API+'?action=indices', function(res){
     if(!res||!res.ok) return;
-    datalistPar('dl_ocs', res.ocs||[]);
-    datalistPar('dl_partidas', res.partidas||[]);
+    INDICES_OK=true;
+    llenarLista('dl_ocs', res.ocs);
+    llenarLista('dl_pcorte', res.partidas_corte);
+    llenarLista('dl_partidas', res.partidas_tint);
   }, function(){});
 }
 
@@ -1251,15 +1265,36 @@ function hoyReporte(){
 /* ---------------- formulario: auditoría de Corte ---------------- */
 var AUD_EXISTE = null;
 
+/* cada búsqueda arranca de cero: si no se vacía, quedan los datos del registro anterior */
+function vaciarFormAud(){
+  ['a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma',
+   'a_desp','a_audt','a_auditor','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
+  el('a_modulo').value=''; el('a_origen').value='S/O'; el('a_estado').value='';
+  el('a_fecha').value = hoyISO();
+  el('a_codh').textContent = 'Al escribirlo se completa el artículo solo';
+  el('a_salida').innerHTML = '';
+}
+function vaciarFormTint(){
+  ['t_tint','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
+    .forEach(function(id){ el(id).value=''; });
+  el('t_estado').value=''; el('t_fecha').value = hoyISO();
+  el('t_salida').innerHTML = '';
+}
+
 function pintarHistorialAud(res){
   var c = el('a_hist');
+  vaciarFormAud();
   if(!res || !res.existe){
     AUD_EXISTE = null;
     c.innerHTML = '<div class="msg ok">O/Corte nueva. Completa los datos de la auditoría.</div>';
     el('a_titulo').textContent = 'Nueva auditoría';
     el('a_fh').textContent = 'Fecha de esta auditoría';
+    if(modoAud()==='partida') el('a_partida').value = T(el('a_oc').value);
+    else el('a_ocnew').value = T(el('a_oc').value);
     el('a_sub').textContent = 'O/Corte no registrada: completa los datos de la planilla.';
     el('a_bloque1').style.display = '';
+    el('a_ocnew').parentNode.style.display = (modoAud()==='oc') ? 'none' : '';
+    if(modoAud()==='oc'){ el('a_partida').value=''; }
     estadosAud('AUDITORIA');
     el('a_form').classList.remove('hide');
     return;
@@ -1280,6 +1315,7 @@ function pintarHistorialAud(res){
   el('a_sub').textContent = 'Los datos de la planilla se conservan: solo registra la fecha, el estado nuevo y qué pasó.';
   el('a_fh').textContent = 'Fecha del seguimiento';
   el('a_bloque1').style.display = 'none';
+  el('a_ocnew').parentNode.style.display = 'none';
   estadosAud('SEGUIMIENTO');
   el('a_form').classList.remove('hide');
   ['a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_audt','a_auditor'].forEach(function(id){
@@ -1296,18 +1332,65 @@ function pintarHistorialAud(res){
   el('a_obs2').value = '';
 }
 
+var OC_ACTUAL='';
+function modoAud(){ return T(el('a_modo').value)||'partida'; }
+
 function buscarOC(){
-  var oc = T(el('a_oc').value);
-  if(!oc){ msg('a_hist','err','Escribe la O/Corte.'); return; }
+  var q = T(el('a_oc').value);
+  if(!q){ msg('a_hist','err','Escribe la partida o la O/Corte.'); return; }
+  el('a_form').classList.add('hide'); OC_ACTUAL='';
   el('a_hist').innerHTML = '<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
-  jsonp(API+'?action=buscar_oc&oc='+encodeURIComponent(oc), pintarHistorialAud,
-    function(){ msg('a_hist','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+  var modo = modoAud();
+  jsonp(API+'?action=buscar_oc&modo='+modo+'&q='+encodeURIComponent(q), function(res){
+    if(modo==='partida' && res && res.porPartida){ elegirOC(res, q); return; }
+    OC_ACTUAL = q.toUpperCase();
+    pintarHistorialAud(res);
+  }, function(){ msg('a_hist','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+}
+
+function elegirOC(res, partida){
+  if(!res.existe){
+    OC_ACTUAL='';
+    vaciarFormAud();
+    el('a_hist').innerHTML='<div class="msg ok">La partida <b>'+esc(partida)+'</b> no tiene O/Corte registrada. '+
+      'Completa los datos y escribe la O/Corte que corresponde.</div>';
+    el('a_titulo').textContent='Nueva auditoría';
+    el('a_sub').textContent='Partida sin registros: completa los datos de la planilla.';
+    el('a_bloque1').style.display='';
+    el('a_form').classList.remove('hide');
+    el('a_partida').value=partida;
+    el('a_ocnew').parentNode.style.display='';
+    el('a_ocnew').value='';
+    estadosAud('AUDITORIA');
+    AUD_EXISTE=null;
+    return;
+  }
+  var f = res.ocs.map(function(o){
+    var cls = o.estado==='APROBADO'?'ap':(o.estado==='RECHAZADO'?'re':'sg');
+    return '<div class="ev"><span class="f">'+(o.fecha?o.fecha.split('-').reverse().join('/'):'—')+'</span>'+
+      '<button class="btn mini sec" type="button" data-oc="'+esc(o.oc)+'">'+esc(o.oc)+'</button>'+
+      '<span class="tag '+cls+'">'+esc(o.estado)+'</span>'+
+      '<span class="d">'+esc([o.grupo,o.color,fn(o.prendas)+' prendas'].filter(Boolean).join(' · '))+'</span></div>';
+  }).join('');
+  el('a_hist').innerHTML='<div class="hist"><div class="hh">Partida '+esc(partida)+' · '+res.ocs.length+
+    ' O/Corte registrada(s)</div><div class="hb">'+f+'</div>'+
+    '<div class="ac">Elige la O/Corte para ver su historial y agregar un seguimiento.</div></div>';
+  el('a_form').classList.add('hide');
+  Array.prototype.forEach.call(el('a_hist').querySelectorAll('button[data-oc]'), function(b){
+    b.onclick = function(){
+      var oc=b.getAttribute('data-oc');
+      OC_ACTUAL=oc.toUpperCase();
+      el('a_hist').innerHTML='<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
+      jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(oc), pintarHistorialAud,
+        function(){ msg('a_hist','err','No se pudo consultar el tablero.'); });
+    };
+  });
 }
 
 function guardarAud(){
   if(!pideUsuario('a_salida')) return;
-  var oc = T(el('a_oc').value);
-  if(!oc){ msg('a_salida','err','Falta la O/Corte.'); return; }
+  var oc = OC_ACTUAL || T(el('a_ocnew').value) || (modoAud()==='oc' ? T(el('a_oc').value) : '');
+  if(!oc){ msg('a_salida','err','Falta la O/Corte: escríbela en el formulario.'); el('a_ocnew').focus(); return; }
   var estado = T(el('a_estado').value);
   if(!estado){ msg('a_salida','err','Elige el estado.'); return; }
   var tipo = AUD_EXISTE ? 'SEGUIMIENTO' : 'AUDITORIA';
@@ -1326,9 +1409,9 @@ function guardarAud(){
       jsonp(API+'?action=buscar_oc&oc='+encodeURIComponent(oc), function(res){
         el('a_guardar').disabled = false; el('a_guardar').innerHTML = 'Guardar';
         if(res && res.ok && res.existe){
+          pintarHistorialAud(res);
           msg('a_salida','ok','<b>Guardado.</b> '+esc(oc)+' quedó con '+res.historial.length+
             ' registro(s). Estado actual: <b>'+esc(res.actual.estado)+'</b>.');
-          pintarHistorialAud(res);
           if(r.cod_tela && r.articulo && !TELAMAP[r.cod_tela]){ TELAMAP[r.cod_tela]=r.articulo;
             TELAS.push({cod:r.cod_tela,desc:r.articulo}); datalist('dl_telas',TELAS.map(function(t){return t.cod;})); }
         }else{
@@ -1341,7 +1424,8 @@ function guardarAud(){
 }
 
 function limpiarAud(){
-  ['a_oc','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma','a_desp',
+  OC_ACTUAL='';
+  ['a_oc','a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma','a_desp',
    'a_audt','a_auditor','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
   el('a_fecha').value = hoyISO();
   el('a_hist').innerHTML=''; el('a_salida').innerHTML='';
@@ -1415,6 +1499,7 @@ var TIN_EXISTE = null;
 
 function pintarHistorialTint(res){
   var c = el('t_hist');
+  vaciarFormTint();
   if(!res || !res.existe){
     TIN_EXISTE = null;
     c.innerHTML = '<div class="msg ok">Partida nueva. Completa los datos de la revisión.</div>';
@@ -1451,6 +1536,7 @@ function pintarHistorialTint(res){
 function buscarPartida(){
   var p = T(el('t_partida').value);
   if(!p){ msg('t_hist','err','Escribe la partida.'); return; }
+  el('t_form').classList.add('hide'); TIN_EXISTE=null;
   el('t_hist').innerHTML = '<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
   jsonp(API+'?action=buscar_partida&partida='+encodeURIComponent(p), pintarHistorialTint,
     function(){ msg('t_hist','err','No se pudo consultar el tablero.'); });
@@ -1472,9 +1558,9 @@ function guardarTint(){
       jsonp(API+'?action=buscar_partida&partida='+encodeURIComponent(p), function(res){
         el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
         if(res && res.ok && res.existe){
+          pintarHistorialTint(res);
           msg('t_salida','ok','<b>Guardado.</b> La partida '+esc(p)+' tiene '+res.historial.length+
             ' revisión(es). Estado actual: <b>'+esc(res.actual.estado)+'</b>.');
-          pintarHistorialTint(res);
         }else{ msg('t_salida','err','No se pudo confirmar el guardado.'); }
       }, function(){ el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
         msg('t_salida','err','Sin respuesta del tablero.'); });
@@ -1537,6 +1623,24 @@ ligarDrop('drop','file',leerArchivos);
 ligarTela('a_cod','a_art','a_codh');
 ligarTela('d_cod','d_art',null);
 
+el('a_modo').onchange = function(){
+  var m=modoAud();
+  el('a_lbl').innerHTML = (m==='partida'?'Partida':'O/Corte')+' <span class="req">*</span>';
+  el('a_oc').setAttribute('list', m==='partida'?'dl_pcorte':'dl_ocs');
+  el('a_oc').placeholder = m==='partida'?'25-546068':'50166-4';
+  el('a_hint').textContent = 'Al escribir aparecen las '+(m==='partida'?'partidas':'O/Corte')+' ya registradas';
+  el('a_oc').value=''; el('a_hist').innerHTML=''; el('a_form').classList.add('hide'); OC_ACTUAL='';
+};
+el('a_oc').oninput = function(){
+  if(el('a_form').className.indexOf('hide')<0){
+    el('a_form').classList.add('hide'); el('a_hist').innerHTML=''; OC_ACTUAL=''; AUD_EXISTE=null;
+  }
+};
+el('t_partida').oninput = function(){
+  if(el('t_form').className.indexOf('hide')<0){
+    el('t_form').classList.add('hide'); el('t_hist').innerHTML=''; TIN_EXISTE=null;
+  }
+};
 el('a_buscar').onclick = buscarOC;
 el('a_oc').onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); buscarOC(); } };
 el('a_guardar').onclick = guardarAud;
@@ -1565,7 +1669,7 @@ el('r_copiar').onclick = copiarTabla;
 
 ['a_fecha','d_fecha','t_fecha','r_desde','r_hasta'].forEach(function(id){ el(id).value = hoyISO(); });
 cargarCatalogos();
-cargarIndices();
+setTimeout(cargarIndices, 400);
 
 </script>
 </body>
