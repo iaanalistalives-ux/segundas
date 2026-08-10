@@ -103,8 +103,14 @@
       <div class="wsel">Año: <span id="anioBtns" class="modesel"></span></div>
       <div class="wsel">Mes: <select id="mesSel"></select></div>
       <button class="btn" type="button" id="btnRefresh">Actualizar</button>
+      <button class="btn" type="button" id="btnExport">Exportar para enviar</button>
       <button class="btn" type="button" id="btnPrint">Imprimir</button>
       <div class="est" id="est"></div>
+    </div>
+
+    <div id="avisoSnap" class="note" style="display:none;border-left-color:var(--slate);">
+      <b>Esta es una foto del tablero, no la versión en vivo.</b> Los números son los que había al momento de exportarlo
+      y no cambian aunque Calidad registre algo nuevo. Para ver el dato actualizado hay que entrar al enlace del tablero.
     </div>
 
     <div class="tabs no-print">
@@ -274,6 +280,7 @@ var MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SE
 var M3=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
 
 var SEG=null, COR=null, DEF=null, TIN=null, CH={}, ST={anio:null,mes:'TODOS',sec:'s1',defSel:null};
+var SNAPSHOT = null; /*__SNAP__*/
 
 function el(id){ return document.getElementById(id); }
 function N(v){ if(typeof v==='number') return isFinite(v)?v:0;
@@ -327,6 +334,13 @@ function error(m){
 }
 
 function arranque(){
+  if(SNAPSHOT){
+    SEG=SNAPSHOT.seg; COR=SNAPSHOT.cor; DEF=SNAPSHOT.def; TIN=SNAPSHOT.tin;
+    el('estado').style.display='none'; el('dash').style.display='block';
+    document.body.setAttribute('data-snap','1');
+    listo();
+    return;
+  }
   cargando('Cargando indicadores de segundas…');
   jsonp(API+'?action=read', function(res){
     if(!res||!res.ok){ error('El tablero respondió con un error.'); return; }
@@ -929,7 +943,13 @@ function render(){
         RARAS.slice(0,6).map(function(r){ return esc(r.tabla)+' '+esc(r.ref)+' ('+esc(r.fecha)+')'; }).join(' · ') +
         (RARAS.length>6?' y '+(RARAS.length-6)+' más.':'.');
     }
-    el('est').textContent='Actualizado: '+new Date().toLocaleString('es-PE');
+    if(SNAPSHOT){
+      el('est').textContent='Foto tomada el '+SNAPSHOT.fecha;
+      el('btnRefresh').style.display='none'; el('btnExport').style.display='none';
+      el('avisoSnap').style.display='block';
+    }else{
+      el('est').textContent='Actualizado: '+new Date().toLocaleString('es-PE');
+    }
   }catch(e){ error('Error al calcular los indicadores: '+e.message); }
 }
 
@@ -942,6 +962,29 @@ Array.prototype.forEach.call(document.querySelectorAll('.tabs .tb'),function(b){
     ST.sec=b.getAttribute('data-sec');
   };
 });
+function exportar(){
+  var b=el('btnExport'), txt=b.textContent;
+  b.disabled=true; b.innerHTML='Preparando…';
+  fetch(location.href, {cache:'no-store'}).then(function(r){ return r.text(); }).then(function(html){
+    var datos={seg:SEG, cor:COR, def:DEF, tin:TIN,
+      fecha:new Date().toLocaleString('es-PE')};
+    var inyec='SNAPSHOT='+JSON.stringify(datos).replace(/<\/script/gi,'<\\/script')+';';
+    var salida=html.replace('/*__SNAP__*/', inyec);
+    if(salida===html) throw new Error('marcador');
+    var blob=new Blob([salida],{type:'text/html;charset=utf-8'});
+    var a=document.createElement('a');
+    var d=new Date(), p2=function(n){ return ('0'+n).slice(-2); };
+    a.href=URL.createObjectURL(blob);
+    a.download='Indicadores_Calidad_Textil_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.html';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    b.disabled=false; b.innerHTML=txt;
+  }).catch(function(){
+    b.disabled=false; b.innerHTML=txt;
+    alert('No se pudo generar el archivo. Esto solo funciona abriendo el tablero desde su enlace, no desde un archivo guardado en la computadora.');
+  });
+}
+el('btnExport').onclick=exportar;
 el('btnRefresh').onclick=function(){ arranque(); };
 el('btnPrint').onclick=function(){ window.print(); };
 arranque();
