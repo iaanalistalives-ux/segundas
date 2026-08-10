@@ -356,11 +356,19 @@ function arranque(){
 }
 
 function listo(){
-  var an={};
-  SEG.tot.forEach(function(r){ if(r.anio>1900) an[r.anio]=1; });
-  COR.aud.forEach(function(r){ if(r.anio>1900) an[r.anio]=1; });
-  DEF.cab.forEach(function(r){ if(r.anio>1900) an[r.anio]=1; });
-  TIN.forEach(function(r){ if(r.anio>1900) an[r.anio]=1; });
+  /* un año fuera de rango es siempre un error de tipeo en la fecha: no se le arma botón,
+     se avisa para que Calidad lo corrija en el Sheet */
+  var HOY=new Date().getFullYear(), MIN=2020, MAX=HOY+1;
+  var an={}; RARAS=[];
+  function ver(arr,tabla,idf){
+    arr.forEach(function(r){
+      if(!r.anio || r.anio<1900) return;
+      if(r.anio<MIN || r.anio>MAX){ RARAS.push({tabla:tabla, ref:r[idf]||'', fecha:r.fecha||'', anio:r.anio}); }
+      else an[r.anio]=1;
+    });
+  }
+  ver(SEG.tot,'Segundas','mes'); ver(COR.aud,'Auditoría de Corte','oc');
+  ver(DEF.cab,'Defectos textiles','oc'); ver(TIN,'Reporte diario','partida');
   ANIOS=Object.keys(an).map(Number).sort();
   if(!ANIOS.length){ error('El tablero todavía no tiene datos cargados.'); return; }
   ST.anio=ANIOS[ANIOS.length-1]; ST.mes='TODOS';
@@ -370,6 +378,7 @@ function listo(){
 var ANIOS=[];
 
 /* ---------------- filtros ---------------- */
+var RARAS=[];
 function enP(r){
   if(ST.anio!=='CMP' && r.anio!==ST.anio) return false;
   if(ST.anio!=='CMP' && ST.mes!=='TODOS' && r.mes!==ST.mes) return false;
@@ -913,6 +922,13 @@ function render(){
       fn(SEG.det.length)+' líneas · auditoría de Corte '+fn(COR.aud.length)+' registros · liquidación '+
       fn(COR.liq.length)+' · inspecciones '+fn(COR.ins.length)+' · planillas con defectos '+fn(DEF.cab.length)+
       ' · revisiones de tintorería '+fn(TIN.length)+'. El tablero muestra lo que Calidad tenga registrado hasta ahora.';
+    if(RARAS.length){
+      el('pie').innerHTML += '<br><br><span style="color:#B45309;font-weight:700;">'+
+        RARAS.length+' registro(s) con una fecha imposible</span>, seguramente un error de tipeo. '+
+        'No entran en ningún año del filtro hasta que se corrijan en el registro de Calidad: '+
+        RARAS.slice(0,6).map(function(r){ return esc(r.tabla)+' '+esc(r.ref)+' ('+esc(r.fecha)+')'; }).join(' · ') +
+        (RARAS.length>6?' y '+(RARAS.length-6)+' más.':'.');
+    }
     el('est').textContent='Actualizado: '+new Date().toLocaleString('es-PE');
   }catch(e){ error('Error al calcular los indicadores: '+e.message); }
 }
