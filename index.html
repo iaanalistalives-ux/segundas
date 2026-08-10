@@ -90,6 +90,11 @@
   .chk{font-size:12.5px;color:var(--stone);margin-top:10px;}
   .chk .ok{color:var(--sage);font-weight:700;} .chk .no{color:var(--rose);font-weight:700;}
   .vista{display:none;} .vista.active{display:block;}
+  #v_dash.active{display:flex;flex-direction:column;height:calc(100vh - 48px);}
+  .dashbar{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .dashbar span{font-size:19px;font-weight:700;color:var(--petrol);}
+  .dashbar .btn{margin-left:auto;}
+  #dash_if{flex:1;width:100%;border:1px solid var(--warm);border-radius:8px;background:#fff;min-height:520px;}
   .hist{border:1px solid var(--warm);border-radius:8px;overflow:hidden;margin-top:12px;}
   .hist .hh{background:var(--warm-light);padding:10px 14px;font-size:13px;font-weight:700;color:var(--petrol);}
   .hist .hb{max-height:260px;overflow:auto;}
@@ -142,10 +147,10 @@
       <em>el cuadro que se envía por correo</em></button>
 
     <div class="grp">Dashboards · en vivo</div>
-    <a class="it" href="dashboard.html#segundas" target="_blank" rel="noopener" style="text-decoration:none">Segundas</a>
-    <a class="it" href="dashboard.html#corte" target="_blank" rel="noopener" style="text-decoration:none">Rechazos de Corte</a>
-    <a class="it" href="dashboard.html#defectos" target="_blank" rel="noopener" style="text-decoration:none">Defectos textiles</a>
-    <a class="it" href="dashboard.html#tintoreria" target="_blank" rel="noopener" style="text-decoration:none">Reporte diario tintorería</a>
+    <button class="it" type="button" data-v="v_dash" data-h="segundas">Segundas</button>
+    <button class="it" type="button" data-v="v_dash" data-h="corte">Rechazos de Corte</button>
+    <button class="it" type="button" data-v="v_dash" data-h="defectos">Defectos textiles</button>
+    <button class="it" type="button" data-v="v_dash" data-h="tintoreria">Reporte diario tintorería</button>
 
     <div class="who">
       ¿Quién está registrando?
@@ -390,6 +395,16 @@
         <div style="font-size:13px;font-weight:700;margin:18px 0 6px">Partidas revisadas</div>
         <div style="overflow:auto"><table id="r_tabla"></table></div>
       </div>
+    </section>
+
+    <!-- ============ DASHBOARDS ============ -->
+    <section class="vista" id="v_dash">
+      <div class="dashbar">
+        <span id="dash_tit">Dashboard</span>
+        <a class="btn sec mini" id="dash_full" href="dashboard.html" target="_blank" rel="noopener"
+           style="text-decoration:none">Abrir en pantalla completa</a>
+      </div>
+      <iframe id="dash_if" title="Dashboard" src="about:blank"></iframe>
     </section>
 
   </main>
@@ -1098,6 +1113,24 @@ function enviar(payload, listo){
 var CAT = {}, TELAS = [], TELAMAP = {};
 
 /* ---------------- navegación ---------------- */
+var TITDASH={segundas:'Segundas',corte:'Rechazos de Corte',defectos:'Defectos textiles',
+             tintoreria:'Reporte diario tintorería'};
+
+function verDashboard(hash){
+  var f = el('dash_if'), url = 'dashboard.html#'+hash;
+  el('dash_tit').textContent = 'Dashboard · '+(TITDASH[hash]||'');
+  el('dash_full').href = url;
+  /* si ya está cargado, solo se cambia de pestaña: así no vuelve a consultar el tablero */
+  try{
+    if(f.getAttribute('data-listo')==='1' && f.contentWindow){
+      f.contentWindow.location.hash = '#'+hash;
+      return;
+    }
+  }catch(e){}
+  f.setAttribute('data-listo','1');
+  f.src = url;
+}
+
 function irA(vista, tipo){
   Array.prototype.forEach.call(document.querySelectorAll('.vista'), function(v){ v.classList.remove('active'); });
   var v = el(vista); if(v) v.classList.add('active');
@@ -1115,6 +1148,8 @@ Array.prototype.forEach.call(document.querySelectorAll('.side .it'), function(b)
     Array.prototype.forEach.call(document.querySelectorAll('.side .it'), function(x){ x.classList.remove('active'); });
     b.classList.add('active');
     irA(b.getAttribute('data-v'), b.getAttribute('data-t'));
+    var h = b.getAttribute('data-h');
+    if(h) verDashboard(h);
   };
 });
 
