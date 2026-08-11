@@ -257,7 +257,10 @@
           <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="d_art" autocomplete="off"></div>
           <div><label>N° de prendas <span class="req">*</span></label><input type="number" id="d_prendas" min="1"></div>
           <div><label>Auditor tintorería</label><input type="text" id="d_audt" list="dl_auditores" autocomplete="off"></div>
-          <div><label>Tintorería</label><input type="text" id="d_tint" list="dl_tint" autocomplete="off"></div>
+          <div><label>Tintorería</label>
+            <select id="d_tint"></select>
+            <input type="text" id="d_tint_otra" placeholder="Nombre de la tintorería" autocomplete="off" style="display:none;margin-top:6px">
+          </div>
           <div><label>Auditor lavandería</label><input type="text" id="d_audl" list="dl_auditores" autocomplete="off"></div>
         </div>
       </div>
@@ -303,7 +306,10 @@
         <div class="ch" id="t_sub"></div>
         <div class="grid">
           <div><label>Fecha de la revisión <span class="req">*</span></label><input type="text" id="t_fecha" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-          <div><label>Tintorería <span class="req">*</span></label><input type="text" id="t_tint" list="dl_tint" autocomplete="off"></div>
+          <div><label>Tintorería <span class="req">*</span></label>
+            <select id="t_tint"></select>
+            <input type="text" id="t_tint_otra" placeholder="Nombre de la tintorería" autocomplete="off" style="display:none;margin-top:6px">
+          </div>
           <div><label>Artículo</label><input type="text" id="t_art" autocomplete="off"></div>
           <div><label>Grupo</label><input type="text" id="t_grupo" autocomplete="off"></div>
           <div><label>Color</label><input type="text" id="t_color" autocomplete="off"></div>
@@ -1217,6 +1223,40 @@ function datalist(id, lista){
   var d = el(id); if(!d) return;
   d.innerHTML = lista.map(function(v){ return '<option value="'+String(v).replace(/"/g,'&quot;')+'">'; }).join('');
 }
+/* La tintorería se elige de una lista: escribirla a mano fue lo que hizo que TEXTIMAX
+   apareciera de tres formas distintas y partiera los totales. */
+function listaTint(id){
+  var s2 = el(id); if(!s2) return;
+  var lista = (CAT.TINTORERIA || []).slice();
+  s2.innerHTML = '<option value="">— elegir —</option>' +
+    lista.map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('') +
+    '<option value="__OTRA__">➕ Otra (escribirla)</option>';
+  s2.onchange = function(){
+    var otra = el(id+'_otra');
+    if(s2.value === '__OTRA__'){ otra.style.display=''; otra.focus(); }
+    else { otra.style.display='none'; otra.value=''; }
+  };
+}
+function valorTint(id){
+  var s2 = el(id); if(!s2) return '';
+  if(s2.value === '__OTRA__') return UP(el(id+'_otra').value);
+  return UP(s2.value);
+}
+/** Deja seleccionada una tintorería aunque no esté en la lista (registros antiguos). */
+function ponerTint(id, valor){
+  var s2 = el(id); if(!s2) return;
+  var v = T(valor), otra = el(id+'_otra');
+  if(otra){ otra.style.display='none'; otra.value=''; }
+  if(!v){ s2.value=''; return; }
+  var ops = s2.options || [], hay = false;
+  for(var i=0;i<ops.length;i++){ if(ops[i].value===v){ hay=true; break; } }
+  if(!hay){
+    try{ s2.insertBefore(new Option(v, v), ops[ops.length-1] || null); }
+    catch(e){ s2.innerHTML += '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }
+  }
+  s2.value = v;
+}
+
 function cargarCatalogos(){
   jsonp(API+'?action=catalogos', function(res){
     if(!res || !res.ok) return;
@@ -1225,7 +1265,8 @@ function cargarCatalogos(){
     TELAMAP = {};
     TELAS.forEach(function(t){ TELAMAP[String(t.cod).toUpperCase()] = t.desc; });
     datalist('dl_telas', TELAS.map(function(t){ return t.cod; }));
-    datalist('dl_tint', CAT.TINTORERIA || []);
+    listaTint('t_tint'); listaTint('d_tint');
+    datalist('dl_auditores', CAT.AUDITOR || []);
     opciones('a_modulo', CAT.MODULO_TALLER || [], true);
     opciones('a_origen', CAT.ORIGEN_CORTE || ['S/O','TEXTIL','CORTE'], false);
     opciones('t_estado', CAT.ESTADO_TINT || [], true);
@@ -1365,7 +1406,8 @@ function vaciarFormAud(){
   el('a_salida').innerHTML = '';
 }
 function vaciarFormTint(){
-  ['t_tint','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
+  ponerTint('t_tint','');
+  ['t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value = hoyDMY();
   el('t_salida').innerHTML = '';
@@ -1562,7 +1604,7 @@ function guardarDef(){
     grupo:UP(el('d_grupo').value), cliente:UP(el('d_grupo').value).split('-')[0],
     color:UP(el('d_color').value), cod_tela:UP(el('d_cod').value), articulo:T(el('d_art').value),
     estilo:T(el('d_estilo').value), prendas:prendas, motivo:T(el('d_motivo').value),
-    auditor_tinto:UP(el('d_audt').value), tintoreria:UP(el('d_tint').value),
+    auditor_tinto:UP(el('d_audt').value), tintoreria:valorTint('d_tint'),
     auditor_lav:UP(el('d_audl').value)};
   el('d_guardar').disabled = true;
   el('d_guardar').innerHTML = '<span class="spin"></span>Guardando…';
@@ -1580,7 +1622,8 @@ function limpiarDef(soloDefectos){
   Array.prototype.forEach.call(document.querySelectorAll('.dfin'), function(i){ i.value=''; i.parentNode.className='df'; });
   totalDefectos();
   if(soloDefectos) return;
-  ['d_partida','d_oc','d_grupo','d_color','d_estilo','d_cod','d_art','d_prendas','d_audt','d_tint',
+  ponerTint('d_tint','');
+  ['d_partida','d_oc','d_grupo','d_color','d_estilo','d_cod','d_art','d_prendas','d_audt',
    'd_audl','d_motivo'].forEach(function(id){ el(id).value=''; });
   el('d_fecha').value = hoyDMY();
   el('d_salida').innerHTML='';
@@ -1615,7 +1658,7 @@ function pintarHistorialTint(res){
   el('t_titulo').textContent = 'Agregar revisión';
   el('t_sub').textContent = 'Se guarda como registro nuevo. Lo anterior no se borra.';
   el('t_form').classList.remove('hide');
-  el('t_tint').value = ult.tintoreria || '';
+  ponerTint('t_tint', ult.tintoreria);
   el('t_art').value = ult.articulo || '';
   el('t_grupo').value = ult.grupo || '';
   el('t_color').value = ult.color || '';
@@ -1639,8 +1682,9 @@ function guardarTint(){
   if(!p){ msg('t_salida','err','Falta la partida.'); return; }
   var estado = T(el('t_estado').value);
   if(!estado){ msg('t_salida','err','Elige el estado.'); return; }
+  if(!valorTint('t_tint')){ msg('t_salida','err','Elige la tintorería de la lista, o "Otra" si no está.'); return; }
   var fT = fechaValida('t_fecha','t_salida'); if(!fT) return;
-  var r = {fecha:fT, tintoreria:UP(el('t_tint').value), partida:p,
+  var r = {fecha:fT, tintoreria:valorTint('t_tint'), partida:p,
     articulo:T(el('t_art').value), grupo:UP(el('t_grupo').value), color:UP(el('t_color').value),
     peso:N(el('t_peso').value), auditores:UP(el('t_auditores').value), estado:estado,
     obs:T(el('t_obs').value), origen:UP(el('t_origen').value)};
@@ -1648,6 +1692,10 @@ function guardarTint(){
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
     TINT_TODO = null;   /* hay un registro nuevo: el reporte vuelve a traer los datos */
+    if(r.tintoreria && (CAT.TINTORERIA||[]).indexOf(r.tintoreria)<0){
+      CAT.TINTORERIA = (CAT.TINTORERIA||[]).concat([r.tintoreria]);
+      listaTint('t_tint'); listaTint('d_tint');
+    }
     setTimeout(function(){
       jsonp(API+'?action=buscar_partida&partida='+encodeURIComponent(p), function(res){
         el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
@@ -1662,7 +1710,8 @@ function guardarTint(){
   });
 }
 function limpiarTint(){
-  ['t_partida','t_tint','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
+  ponerTint('t_tint','');
+  ['t_partida','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value=hoyDMY();
   el('t_hist').innerHTML=''; el('t_salida').innerHTML='';
