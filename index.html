@@ -197,18 +197,18 @@
             <div class="hint" id="a_fh">Fecha de esta auditoría</div></div>
         </div>
         <div class="grid" id="a_bloque1" style="margin-top:12px">
-          <div><label>O/Corte <span class="req">*</span></label><input type="text" id="a_ocnew" placeholder="50166-4" autocomplete="off">
+          <div><label>O/Corte <span class="req">*</span></label><input type="text" id="a_ocnew" list="dl_ocs" placeholder="50166-4" autocomplete="off">
             <div class="hint">Con su ítem, como en la planilla</div></div>
-          <div><label>Partida</label><input type="text" id="a_partida" autocomplete="off"></div>
-          <div><label>Estilo</label><input type="text" id="a_estilo" autocomplete="off"></div>
-          <div><label>Grupo textil</label><input type="text" id="a_grupo" placeholder="THY-1049" autocomplete="off"></div>
+          <div><label>Partida</label><input type="text" id="a_partida" list="dl_pcorte" autocomplete="off"></div>
+          <div><label>Estilo</label><input type="text" id="a_estilo" list="dl_estilos" autocomplete="off"></div>
+          <div><label>Grupo textil</label><input type="text" id="a_grupo" list="dl_grupos" placeholder="THY-1049" autocomplete="off"></div>
           <div>
             <label>Código de tela</label>
             <input type="text" id="a_cod" list="dl_telas" autocomplete="off" placeholder="JE002091">
             <div class="hint" id="a_codh">Al escribirlo se completa el artículo solo</div>
           </div>
-          <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="a_art" autocomplete="off"></div>
-          <div><label>Color</label><input type="text" id="a_color" autocomplete="off"></div>
+          <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="a_art" list="dl_articulos" autocomplete="off"></div>
+          <div><label>Color</label><input type="text" id="a_color" list="dl_colores" autocomplete="off"></div>
           <div><label>Total prendas</label><input type="number" id="a_prendas" min="0"></div>
           <div><label>Merma</label><input type="number" id="a_merma" min="0"></div>
           <div><label>Prendas despachadas</label><input type="number" id="a_desp" min="0"></div>
@@ -244,17 +244,17 @@
         <div class="ch">Solo marca los defectos que encontraste: el total y el % se calculan solos</div>
         <div class="grid">
           <div><label>Fecha <span class="req">*</span></label><input type="text" id="d_fecha" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-          <div><label>Partida</label><input type="text" id="d_partida" autocomplete="off"></div>
-          <div><label>O/Corte <span class="req">*</span></label><input type="text" id="d_oc" autocomplete="off"></div>
-          <div><label>Grupo textil</label><input type="text" id="d_grupo" placeholder="THY-1049" autocomplete="off"></div>
-          <div><label>Color</label><input type="text" id="d_color" autocomplete="off"></div>
-          <div><label>Estilo</label><input type="text" id="d_estilo" autocomplete="off"></div>
+          <div><label>Partida</label><input type="text" id="d_partida" list="dl_pcorte" autocomplete="off"></div>
+          <div><label>O/Corte <span class="req">*</span></label><input type="text" id="d_oc" list="dl_ocs" autocomplete="off"></div>
+          <div><label>Grupo textil</label><input type="text" id="d_grupo" list="dl_grupos" placeholder="THY-1049" autocomplete="off"></div>
+          <div><label>Color</label><input type="text" id="d_color" list="dl_colores" autocomplete="off"></div>
+          <div><label>Estilo</label><input type="text" id="d_estilo" list="dl_estilos" autocomplete="off"></div>
           <div>
             <label>Código de tela</label>
             <input type="text" id="d_cod" list="dl_telas" autocomplete="off">
             <div class="hint">Se completa el artículo solo</div>
           </div>
-          <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="d_art" autocomplete="off"></div>
+          <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="d_art" list="dl_articulos" autocomplete="off"></div>
           <div><label>N° de prendas <span class="req">*</span></label><input type="number" id="d_prendas" min="1"></div>
           <div><label>Auditor tintorería</label><input type="text" id="d_audt" list="dl_auditores" autocomplete="off"></div>
           <div><label>Tintorería</label>
@@ -310,13 +310,13 @@
             <select id="t_tint"></select>
             <input type="text" id="t_tint_otra" placeholder="Nombre de la tintorería" autocomplete="off" style="display:none;margin-top:6px">
           </div>
-          <div><label>Artículo</label><input type="text" id="t_art" autocomplete="off"></div>
-          <div><label>Grupo</label><input type="text" id="t_grupo" autocomplete="off"></div>
-          <div><label>Color</label><input type="text" id="t_color" autocomplete="off"></div>
+          <div><label>Artículo</label><input type="text" id="t_art" list="dl_articulos" autocomplete="off"></div>
+          <div><label>Grupo</label><input type="text" id="t_grupo" list="dl_grupos" autocomplete="off"></div>
+          <div><label>Color</label><input type="text" id="t_color" list="dl_colores" autocomplete="off"></div>
           <div><label>Peso (kg)</label><input type="number" id="t_peso" min="0" step="0.01"></div>
           <div><label>Auditores</label><input type="text" id="t_auditores" list="dl_auditores" autocomplete="off"></div>
           <div><label>Estado <span class="req">*</span></label><select id="t_estado"></select></div>
-          <div><label>Código de origen del defecto</label><input type="text" id="t_origen" placeholder="TIN-002" autocomplete="off"></div>
+          <div><label>Código de origen del defecto</label><input type="text" id="t_origen" list="dl_origendef" placeholder="TIN-002" autocomplete="off"></div>
         </div>
         <div style="margin-top:12px"><label>Observaciones</label>
           <textarea id="t_obs"></textarea></div>
@@ -421,6 +421,11 @@
 <datalist id="dl_ocs"></datalist>
 <datalist id="dl_pcorte"></datalist>
 <datalist id="dl_partidas"></datalist>
+<datalist id="dl_grupos"></datalist>
+<datalist id="dl_estilos"></datalist>
+<datalist id="dl_colores"></datalist>
+<datalist id="dl_articulos"></datalist>
+<datalist id="dl_origendef"></datalist>
 <datalist id="dl_auditores"></datalist>
 <datalist id="dl_tint"></datalist>
 
@@ -1296,9 +1301,9 @@ function ligarTela(inpCod, inpArt, hintId){
 }
 
 /* ---------------- índices para autocompletar ---------------- */
-function llenarLista(id, texto){
+function llenarLista(id, texto, sep){
   var d=el(id); if(!d) return;
-  var arr=String(texto||'').split(',').filter(Boolean);
+  var arr=String(texto||'').split(sep||',').filter(Boolean);
   d.innerHTML = arr.map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'; }).join('');
   return arr.length;
 }
@@ -1311,6 +1316,12 @@ function cargarIndices(){
     llenarLista('dl_ocs', res.ocs);
     llenarLista('dl_pcorte', res.partidas_corte);
     llenarLista('dl_partidas', res.partidas_tint);
+    llenarLista('dl_grupos', res.grupos);
+    llenarLista('dl_estilos', res.estilos);
+    llenarLista('dl_colores', res.colores);
+    llenarLista('dl_origendef', res.origenes);
+    llenarLista('dl_articulos', res.articulos, '|');
+    if(res.auditores) datalist('dl_auditores', String(res.auditores).split(',').filter(Boolean));
   }, function(){});
 }
 
