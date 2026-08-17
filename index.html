@@ -1460,7 +1460,8 @@ function pintarEstados(pref){
   var cfg=FILTRO[pref], s2=el(pref+'_fest'); if(!s2) return;
   var lista=cfg.estados();
   s2.innerHTML='<option value="">Todos</option>'+
-    lista.map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('');
+    lista.map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('')+
+    '<option value="__SINEST__">⚠ Sin estado o fuera de catálogo</option>';
 }
 
 function verPorEstado(pref){
@@ -1477,19 +1478,24 @@ function verPorEstado(pref){
 function pintarLista(pref){
   var cfg=FILTRO[pref], filas=FDATOS[pref], est=T(el(pref+'_fest').value);
   if(!filas.length){
-    el(pref+'_flista').innerHTML='<div class="msg ok">No hay '+cfg.titulo.toLowerCase()+
-      (est?' en estado <b>'+esc(est)+'</b>':'')+'.</div>';
+    el(pref+'_flista').innerHTML = (est==='__SINEST__')
+      ? '<div class="msg ok"><b>Todo en orden:</b> no hay '+cfg.titulo.toLowerCase()+' sin estado ni con un estado fuera del catálogo.</div>'
+      : '<div class="msg ok">No hay '+cfg.titulo.toLowerCase()+(est?' en estado <b>'+esc(est)+'</b>':'')+'.</div>';
     return;
   }
-  var th=cfg.cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('');
+  var th=cfg.cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+'<th>Estado actual</th>';
   var tb=filas.map(function(r,i){
     return '<tr data-i="'+i+'"><td><input type="checkbox" class="fchk" data-i="'+i+'"></td>'+
       cfg.fila(r).map(function(c){ return '<td>'+c+'</td>'; }).join('')+
+      '<td>'+(T(r.estado)? esc(r.estado) : '<span style="color:#B45309;font-weight:700">(vacío)</span>')+'</td>'+
       '<td>'+esc(String(r.obs||'').substring(0,40))+'</td></tr>';
   }).join('');
   el(pref+'_flista').innerHTML=
+    (est==='__SINEST__' ? '<div class="msg warn" style="margin:0 0 10px"><b>Estas necesitan corrección:</b> '+
+      'no tienen estado o el que tienen no está en el catálogo, así que en el tablero aparecen como '+
+      '“SIN ESTADO”. Elígelas y asígnales el estado que corresponde.</div>' : '')+
     '<div class="flist"><div class="fh"><b>'+filas.length+'</b> '+cfg.titulo.toLowerCase()+
-      (est?' en estado <b>'+esc(est)+'</b>':' en total')+
+      (est==='__SINEST__' ? ' <b>sin estado válido</b>' : (est?' en estado <b>'+esc(est)+'</b>':' en total'))+
       '<span class="der"><button class="btn sec mini" type="button" id="'+pref+'_ftodos">Elegir todas</button>'+
       '<button class="btn sec mini" type="button" id="'+pref+'_fnada">Quitar selección</button></span></div>'+
     '<div class="fb"><table><tr><th style="width:28px"></th>'+th+'<th>Observación</th></tr>'+tb+'</table></div>'+
