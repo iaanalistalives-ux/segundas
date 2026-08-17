@@ -1549,7 +1549,23 @@ var FILTRO = {
        esc(String(r.articulo).substring(0,26)), esc(r.grupo),
        '<span class="num">'+fn(r.peso)+'</span>', esc(iso2dmy(r.fecha))]; }}
 };
-var FDATOS = {a:[], t:[]}, FSEL = {a:{}, t:{}};
+var FDATOS = {a:[], t:[]}, FSEL = {a:{}, t:{}}, FVISIBLE = {a:false, t:false};
+
+/* Después de guardar cualquier cosa, todo lo que esté a la vista se vuelve a leer del tablero:
+   la lista por estado, el historial abierto y los datos del reporte de partidas. */
+function refrescarTodo(pref, clave){
+  TINT_TODO = null;                       /* el reporte vuelve a traer los datos */
+  if(FVISIBLE[pref]) verPorEstado(pref);  /* la lista por estado se recarga sola */
+  if(clave){                              /* y el historial que esté abierto */
+    if(pref==='t'){
+      jsonp(API+'?action=buscar_partida&partida='+encodeURIComponent(clave), function(r){
+        if(r&&r.ok) pintarHistorialTint(r); }, function(){});
+    }else{
+      jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(clave), function(r){
+        if(r&&r.ok) pintarHistorialAud(r); }, function(){});
+    }
+  }
+}
 
 function pintarEstados(pref){
   var cfg=FILTRO[pref], s2=el(pref+'_fest'); if(!s2) return;
@@ -1562,10 +1578,12 @@ function pintarEstados(pref){
 function verPorEstado(pref){
   var cfg=FILTRO[pref], est=T(el(pref+'_fest').value);
   FSEL[pref]={};
+  el(pref+'_fest').setAttribute('data-ult', est);
   el(pref+'_flista').innerHTML='<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
   jsonp(API+'?action=por_estado&tabla='+cfg.tabla+'&estado='+encodeURIComponent(est), function(res){
     if(!res||!res.ok){ msg(pref+'_flista','err','No se pudo consultar el tablero.'); return; }
     FDATOS[pref]=res.filas||[];
+    FVISIBLE[pref]=true;
     pintarLista(pref);
   }, function(){ msg(pref+'_flista','err','No se pudo consultar el tablero. Revisa la conexión.'); });
 }
@@ -1647,14 +1665,13 @@ function aplicarCambio(pref){
       b.innerHTML='Aplicar';
       msg(pref+'_fsalida','ok','<b>Listo.</b> '+claves.length+' '+cfg.titulo.toLowerCase()+
         ' pasaron a <b>'+esc(nuevo)+'</b>. El estado anterior queda en el historial.');
-      if(pref==='t') TINT_TODO=null;
-      verPorEstado(pref);
+      refrescarTodo(pref, '');
     }, 1800);
   });
 }
 
 /* ---------------- formulario: auditoría de Corte ---------------- */
-var AUD_EXISTE = null;
+var AUD_EXISTE = null, AUD_ULTFECHA = '';
 
 /* cada búsqueda arranca de cero: si no se vacía, quedan los datos del registro anterior */
 function vaciarFormAud(){
@@ -1678,7 +1695,7 @@ function pintarHistorialAud(res){
   var c = el('a_hist');
   vaciarFormAud();
   if(!res || !res.existe){
-    AUD_EXISTE = null;
+    AUD_EXISTE = null; AUD_ULTFECHA = '';
     c.innerHTML = '<div class="msg ok">O/Corte nueva. Completa los datos de la auditoría.</div>';
     el('a_titulo').textContent = 'Nueva auditoría';
     el('a_fh').textContent = 'Fecha de esta auditoría';
@@ -1694,6 +1711,7 @@ function pintarHistorialAud(res){
   }
   AUD_EXISTE = res;
   var h = res.historial, ult = res.actual;
+  AUD_ULTFECHA = T(ult.fecha);
   var filas = h.map(function(e){
     var cls = e.estado==='APROBADO' ? 'ap' : (e.estado==='RECHAZADO' ? 're' : 'sg');
     return '<div class="ev"><span class="f">'+(e.fecha? e.fecha.split('-').reverse().join('/') : '—')+'</span>'+
@@ -1789,6 +1807,14 @@ function guardarAud(){
   if(!estado){ msg('a_salida','err','Elige el estado.'); return; }
   var tipo = AUD_EXISTE ? 'SEGUIMIENTO' : 'AUDITORIA';
   var fA = fechaValida('a_fecha','a_salida'); if(!fA) return;
+  if(AUD_ULTFECHA && fA < AUD_ULTFECHA){
+    var uD = iso2dmy(AUD_ULTFECHA), nD = iso2dmy(fA);
+    if(!confirm('El último registro de esta O/Corte es del '+uD+', y estás registrando uno del '+nD+
+      '.\n\nComo es anterior, el estado actual va a seguir siendo el del '+uD+
+      ' y este registro quedará solo en el historial.\n\n¿Es correcta la fecha '+nD+'?')) {
+      el('a_fecha').focus(); return;
+    }
+  }
   var r = {tipo_reg:tipo, oc:oc, fecha:fA,
     partida:T(el('a_partida').value), estilo:T(el('a_estilo').value), grupo:UP(el('a_grupo').value),
     cod_tela:UP(el('a_cod').value), articulo:T(el('a_art').value), color:UP(el('a_color').value),
@@ -1800,8 +1826,9 @@ function guardarAud(){
   el('a_guardar').disabled = true;
   el('a_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'AUD_FORM', usuario:usuario(), registro:r}, function(){
+    if(FVISIBLE.a) verPorEstado('a');   /* la lista por estado se recarga sola */
     setTimeout(function(){
-      jsonp(API+'?action=buscar_oc&oc='+encodeURIComponent(oc), function(res){
+      jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(oc), function(res){
         el('a_guardar').disabled = false; el('a_guardar').innerHTML = 'Guardar';
         if(res && res.ok && res.existe){
           pintarHistorialAud(res);
@@ -1876,6 +1903,7 @@ function guardarDef(){
   enviar({token:TOKEN, tabla:'DEFTEX_FORM', usuario:usuario(), registro:r, detalle:det}, function(){
     setTimeout(function(){
       el('d_guardar').disabled = false; el('d_guardar').innerHTML = 'Guardar';
+      TINT_TODO = null;
       msg('d_salida','ok','<b>Guardado.</b> '+fn(totalEnv)+' defectos en '+det.length+
         ' tipo(s) · '+(totalEnv/prendas*100).toFixed(2)+'% de rechazo sobre '+fn(prendas)+' prendas.');
       limpiarDef(true);
@@ -1894,13 +1922,13 @@ function limpiarDef(soloDefectos){
 }
 
 /* ---------------- formulario: reporte diario ---------------- */
-var TIN_EXISTE = null;
+var TIN_EXISTE = null, TIN_ULTFECHA = '';
 
 function pintarHistorialTint(res){
   var c = el('t_hist');
   vaciarFormTint();
   if(!res || !res.existe){
-    TIN_EXISTE = null;
+    TIN_EXISTE = null; TIN_ULTFECHA = '';
     c.innerHTML = '<div class="msg ok">Partida nueva. Completa los datos de la revisión.</div>';
     el('t_titulo').textContent = 'Nuevo registro';
     el('t_sub').textContent = 'Primera revisión de esta partida';
@@ -1909,6 +1937,7 @@ function pintarHistorialTint(res){
   }
   TIN_EXISTE = res;
   var h = res.historial, ult = res.actual;
+  TIN_ULTFECHA = T(ult.fecha);
   var filas = h.map(function(e){
     var cls = /APROBADA/.test(e.estado) ? 'ap' : (/RECHAZ/.test(e.estado) ? 're' : 'sg');
     return '<div class="ev"><span class="f">'+(e.fecha? e.fecha.split('-').reverse().join('/') : '—')+'</span>'+
@@ -1947,6 +1976,14 @@ function guardarTint(){
   if(!estado){ msg('t_salida','err','Elige el estado.'); return; }
   if(!valorCerrado('t_tint')){ msg('t_salida','err','Elige la tintorería de la lista, o "Otra" si no está.'); return; }
   var fT = fechaValida('t_fecha','t_salida'); if(!fT) return;
+  if(TIN_ULTFECHA && fT < TIN_ULTFECHA){
+    var ultDMY = iso2dmy(TIN_ULTFECHA), nuevaDMY = iso2dmy(fT);
+    if(!confirm('La última revisión de esta partida es del '+ultDMY+', y estás registrando una del '+
+      nuevaDMY+'.\n\nComo es anterior, el estado actual va a seguir siendo el del '+ultDMY+
+      ' y este registro quedará solo en el historial.\n\n¿Es correcta la fecha '+nuevaDMY+'?')) {
+      el('t_fecha').focus(); return;
+    }
+  }
   var r = {fecha:fT, tintoreria:valorCerrado('t_tint'), partida:p,
     articulo:T(el('t_art').value), grupo:UP(el('t_grupo').value), color:UP(el('t_color').value),
     peso:N(el('t_peso').value), auditores:valorCerrado('t_auditores'), estado:estado,
@@ -1954,7 +1991,8 @@ function guardarTint(){
   el('t_guardar').disabled = true;
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
-    TINT_TODO = null;   /* hay un registro nuevo: el reporte vuelve a traer los datos */
+    TINT_TODO = null;                  /* el reporte vuelve a traer los datos */
+    if(FVISIBLE.t) verPorEstado('t');  /* y la lista por estado se recarga sola */
     sumarACatalogo('TINTORERIA', r.tintoreria);
     sumarACatalogo('AUDITOR', r.auditores);
     sumarACatalogo('ORIGEN_DEF', r.origen);
@@ -1963,8 +2001,12 @@ function guardarTint(){
         el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
         if(res && res.ok && res.existe){
           pintarHistorialTint(res);
-          msg('t_salida','ok','<b>Guardado.</b> La partida '+esc(p)+' tiene '+res.historial.length+
-            ' revisión(es). Estado actual: <b>'+esc(res.actual.estado)+'</b>.');
+          var coincide = UP(res.actual.estado)===UP(estado);
+          msg('t_salida', coincide?'ok':'warn',
+            '<b>Guardado.</b> La partida '+esc(p)+' tiene '+res.historial.length+' revisión(es). '+
+            'Estado actual: <b>'+esc(res.actual.estado)+'</b> ('+iso2dmy(res.actual.fecha)+').'+
+            (coincide?'':' <br><b>Ojo:</b> no quedó como «'+esc(estado)+'» porque hay una revisión posterior. '+
+              'Si la que acabas de registrar es la más reciente, corrige su fecha.'));
         }else{ msg('t_salida','err','No se pudo confirmar el guardado.'); }
       }, function(){ el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
         msg('t_salida','err','Sin respuesta del tablero.'); });
