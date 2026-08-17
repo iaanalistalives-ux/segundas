@@ -56,6 +56,23 @@
   .drop .sm{font-size:12.5px;color:var(--stone);}
   .cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
   @media(max-width:820px){.cards{grid-template-columns:1fr;}}
+  .flist{border:1px solid var(--warm);border-radius:8px;overflow:hidden;margin-top:12px;}
+  .flist .fh{background:var(--warm-light);padding:9px 14px;font-size:12.5px;color:#333;
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .flist .fh b{color:var(--petrol);}
+  .flist .fh .der{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .flist .fb{max-height:300px;overflow:auto;}
+  .flist table{width:100%;border-collapse:collapse;font-size:12px;}
+  .flist th{position:sticky;top:0;background:#fff;text-align:left;padding:6px 8px;
+    border-bottom:1px solid var(--warm);color:var(--stone);font-weight:700;white-space:nowrap;z-index:1;}
+  .flist td{padding:5px 8px;border-bottom:1px solid var(--warm-light);}
+  .flist td.num{text-align:right;}
+  .flist tr.sel td{background:#F4FBF8;}
+  .flist .acc{padding:11px 14px;border-top:1px solid var(--warm);background:#fff;
+    display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .flist .acc select,.flist .acc input{font-family:inherit;font-size:12.5px;border:1.5px solid var(--warm);
+    border-radius:6px;padding:6px 9px;}
+  .flist .acc input.obs{flex:1;min-width:180px;}
   #v_rep table{width:100%;border-collapse:collapse;font-size:12px;}
   #v_rep th{background:var(--warm-light);color:var(--stone);font-weight:700;padding:6px 8px;
     border:1px solid var(--warm);text-align:left;white-space:nowrap;}
@@ -165,6 +182,16 @@
       <h1>Auditoría de Corte</h1>
       <div class="sub">Reemplaza al archivo <b>CONSOLIDADO RECH REPORTE CORTE - TALLERES 2026</b>.<br>Escribe la O/Corte: si ya existe, aparece su historial y solo agregas qué pasó después.</div>
 
+
+      <div class="card">
+        <h2>Ver por estado</h2>
+        <div class="ch">Muestra las O/Corte según cómo estén hoy. Puedes elegir varias y cambiarles el estado de una vez.</div>
+        <div class="grid">
+          <div><label>Estado</label><select id="a_fest"></select></div>
+          <div style="align-self:end"><button class="btn sec" type="button" id="a_fver">Ver</button></div>
+        </div>
+        <div id="a_flista"></div>
+      </div>
       <div class="card">
         <h2>Empieza por la partida o la O/Corte</h2>
         <div class="ch">Si es nueva, se abre el formulario para registrarla; si ya existe, aparece su historial para agregar un seguimiento.</div>
@@ -289,6 +316,16 @@
       <h1>Reporte diario de tintorería</h1>
       <div class="sub">Reemplaza al archivo <b>REPORTE DIARIO CESAR</b>.<br>Cada revisión se agrega como registro nuevo: el estado anterior nunca se pierde.</div>
 
+
+      <div class="card">
+        <h2>Ver por estado</h2>
+        <div class="ch">Muestra las partidas según su estado actual. Puedes elegir varias y cambiarles el estado de una vez.</div>
+        <div class="grid">
+          <div><label>Estado</label><select id="t_fest"></select></div>
+          <div style="align-self:end"><button class="btn sec" type="button" id="t_fver">Ver</button></div>
+        </div>
+        <div id="t_flista"></div>
+      </div>
       <div class="card">
         <h2>Partida</h2>
         <div class="ch">Si es nueva, se abre el formulario para registrarla; si ya fue revisada antes, aparece todo su historial para agregar la revisión de hoy.</div>
@@ -1275,6 +1312,7 @@ function cargarCatalogos(){
     opciones('a_modulo', CAT.MODULO_TALLER || [], true);
     opciones('a_origen', CAT.ORIGEN_CORTE || ['S/O','TEXTIL','CORTE'], false);
     opciones('t_estado', CAT.ESTADO_TINT || [], true);
+    pintarEstados('a'); pintarEstados('t');
     pintarDefectos(CAT.DEFECTO || []);
     estadosAud('AUDITORIA');
   }, function(){
@@ -1402,6 +1440,116 @@ function semanaReporte(){
   var d=new Date(), a=new Date(d.getTime()-6*86400000);
   function dmy(x){ return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear(); }
   el('r_desde').value=dmy(a); el('r_hasta').value=dmy(d); verReporte();
+}
+
+/* ---------------- filtro por estado + cambio en lote ---------------- */
+var FILTRO = {
+  a:{tabla:'CORTE_AUD', titulo:'O/Corte', cols:['O/Corte','Grupo','Estilo','Módulo / Taller','Prendas','Última fecha'],
+     estados:function(){ return ['APROBADO','RECHAZADO'].concat(CAT.ESTADO_SEG||[]); },
+     fila:function(r){ return ['<b>'+esc(r.clave)+'</b>', esc(r.grupo), esc(r.estilo), esc(r.modulo),
+       '<span class="num">'+fn(r.prendas)+'</span>', esc(iso2dmy(r.fecha))]; }},
+  t:{tabla:'TINT_DIARIO', titulo:'Partidas', cols:['Partida','Tintorería','Artículo','Grupo','Peso kg','Última revisión'],
+     estados:function(){ return CAT.ESTADO_TINT||[]; },
+     fila:function(r){ return ['<b>'+esc(r.clave)+'</b>', esc(String(r.tintoreria).substring(0,24)),
+       esc(String(r.articulo).substring(0,26)), esc(r.grupo),
+       '<span class="num">'+fn(r.peso)+'</span>', esc(iso2dmy(r.fecha))]; }}
+};
+var FDATOS = {a:[], t:[]}, FSEL = {a:{}, t:{}};
+
+function pintarEstados(pref){
+  var cfg=FILTRO[pref], s2=el(pref+'_fest'); if(!s2) return;
+  var lista=cfg.estados();
+  s2.innerHTML='<option value="">Todos</option>'+
+    lista.map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('');
+}
+
+function verPorEstado(pref){
+  var cfg=FILTRO[pref], est=T(el(pref+'_fest').value);
+  FSEL[pref]={};
+  el(pref+'_flista').innerHTML='<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
+  jsonp(API+'?action=por_estado&tabla='+cfg.tabla+'&estado='+encodeURIComponent(est), function(res){
+    if(!res||!res.ok){ msg(pref+'_flista','err','No se pudo consultar el tablero.'); return; }
+    FDATOS[pref]=res.filas||[];
+    pintarLista(pref);
+  }, function(){ msg(pref+'_flista','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+}
+
+function pintarLista(pref){
+  var cfg=FILTRO[pref], filas=FDATOS[pref], est=T(el(pref+'_fest').value);
+  if(!filas.length){
+    el(pref+'_flista').innerHTML='<div class="msg ok">No hay '+cfg.titulo.toLowerCase()+
+      (est?' en estado <b>'+esc(est)+'</b>':'')+'.</div>';
+    return;
+  }
+  var th=cfg.cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('');
+  var tb=filas.map(function(r,i){
+    return '<tr data-i="'+i+'"><td><input type="checkbox" class="fchk" data-i="'+i+'"></td>'+
+      cfg.fila(r).map(function(c){ return '<td>'+c+'</td>'; }).join('')+
+      '<td>'+esc(String(r.obs||'').substring(0,40))+'</td></tr>';
+  }).join('');
+  el(pref+'_flista').innerHTML=
+    '<div class="flist"><div class="fh"><b>'+filas.length+'</b> '+cfg.titulo.toLowerCase()+
+      (est?' en estado <b>'+esc(est)+'</b>':' en total')+
+      '<span class="der"><button class="btn sec mini" type="button" id="'+pref+'_ftodos">Elegir todas</button>'+
+      '<button class="btn sec mini" type="button" id="'+pref+'_fnada">Quitar selección</button></span></div>'+
+    '<div class="fb"><table><tr><th style="width:28px"></th>'+th+'<th>Observación</th></tr>'+tb+'</table></div>'+
+    '<div class="acc"><span id="'+pref+'_fcuenta" style="font-size:12.5px;color:var(--stone)">Ninguna elegida</span>'+
+      '<select id="'+pref+'_fnuevo"><option value="">Cambiar estado a…</option>'+
+      cfg.estados().map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('')+
+      '</select>'+
+      '<input type="text" class="obs" id="'+pref+'_fobs" placeholder="Por qué cambia (queda registrado)">'+
+      '<button class="btn" id="'+pref+'_faplicar" type="button" disabled>Aplicar</button></div></div>'+
+    '<div id="'+pref+'_fsalida"></div>';
+
+  Array.prototype.forEach.call(document.querySelectorAll('#'+pref+'_flista .fchk'), function(c){
+    c.onchange=function(){
+      var i=c.getAttribute('data-i');
+      if(c.checked) FSEL[pref][i]=1; else delete FSEL[pref][i];
+      var fila=c.parentNode && c.parentNode.parentNode;
+      if(fila) fila.className = c.checked ? 'sel' : '';
+      contarSel(pref);
+    };
+  });
+  el(pref+'_ftodos').onclick=function(){
+    Array.prototype.forEach.call(document.querySelectorAll('#'+pref+'_flista .fchk'), function(c){
+      c.checked=true; FSEL[pref][c.getAttribute('data-i')]=1;
+      var f2=c.parentNode&&c.parentNode.parentNode; if(f2) f2.className='sel'; });
+    contarSel(pref);
+  };
+  el(pref+'_fnada').onclick=function(){
+    Array.prototype.forEach.call(document.querySelectorAll('#'+pref+'_flista .fchk'), function(c){
+      c.checked=false; var f2=c.parentNode&&c.parentNode.parentNode; if(f2) f2.className=''; });
+    FSEL[pref]={}; contarSel(pref);
+  };
+  el(pref+'_fnuevo').onchange=function(){ contarSel(pref); };
+  el(pref+'_faplicar').onclick=function(){ aplicarCambio(pref); };
+  contarSel(pref);
+}
+
+function contarSel(pref){
+  var n=Object.keys(FSEL[pref]).length;
+  var c=el(pref+'_fcuenta'); if(c) c.textContent = n ? (n+' elegida(s)') : 'Ninguna elegida';
+  var b=el(pref+'_faplicar');
+  if(b) b.disabled = !(n>0 && T(el(pref+'_fnuevo').value));
+}
+
+function aplicarCambio(pref){
+  var cfg=FILTRO[pref];
+  if(!pideUsuario(pref+'_fsalida')) return;
+  var nuevo=T(el(pref+'_fnuevo').value);
+  var claves=Object.keys(FSEL[pref]).map(function(i){ return FDATOS[pref][i].clave; });
+  if(!nuevo || !claves.length) return;
+  var b=el(pref+'_faplicar'); b.disabled=true; b.innerHTML='<span class="spin"></span>Aplicando…';
+  enviar({token:TOKEN, tabla:'CAMBIO_ESTADO', destino:cfg.tabla, usuario:usuario(),
+    estado:nuevo, fecha:hoyISO(), obs:T(el(pref+'_fobs').value), items:claves}, function(){
+    setTimeout(function(){
+      b.innerHTML='Aplicar';
+      msg(pref+'_fsalida','ok','<b>Listo.</b> '+claves.length+' '+cfg.titulo.toLowerCase()+
+        ' pasaron a <b>'+esc(nuevo)+'</b>. El estado anterior queda en el historial.');
+      if(pref==='t') TINT_TODO=null;
+      verPorEstado(pref);
+    }, 1800);
+  });
 }
 
 /* ---------------- formulario: auditoría de Corte ---------------- */
@@ -1777,6 +1925,8 @@ ligarDrop('drop','file',leerArchivos);
 ligarTela('a_cod','a_art','a_codh');
 ligarTela('d_cod','d_art',null);
 
+el('a_fver').onclick = function(){ verPorEstado('a'); };
+el('t_fver').onclick = function(){ verPorEstado('t'); };
 el('a_modo').onchange = function(){
   var m=modoAud();
   el('a_lbl').innerHTML = (m==='partida'?'Partida':'O/Corte')+' <span class="req">*</span>';
