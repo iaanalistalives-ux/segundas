@@ -144,7 +144,7 @@
       <div class="panel"><div class="pt">Clientes con más segundas · piezas y prendas en un solo cuadro</div>
         <div class="ph">Participación de cada cliente dentro de piezas y dentro de prendas</div>
         <div class="cwrap" style="height:320px"><canvas id="c_cli"></canvas></div></div>
-      <div class="panel"><div class="pt">Comparativo por área generadora (piezas vs prendas)</div>
+      <div class="panel"><div class="pt">Comparativo de Segundas por Área Generadora (piezas vs prendas)</div>
         <div class="ph" id="h_area"></div>
         <div class="cwrap" style="height:320px"><canvas id="c_area"></canvas></div></div>
       <div class="panel"><div class="pt">Resumen mensual</div>
@@ -167,13 +167,13 @@
           <div class="ph" id="h_org">Sobre las inspecciones de Corte del período</div>
           <div class="cwrap" style="height:260px"><canvas id="c_origen"></canvas></div></div>
         <div class="panel"><div class="pt">% de Rechazos por Módulo / Taller de Corte</div>
-          <div class="ph">O/Corte rechazadas ÷ O/Corte auditadas de cada uno</div>
+          <div class="ph">O/C rechazadas ÷ N° O/C auditadas de cada uno</div>
           <div class="cwrap" style="height:260px"><canvas id="c_mod"></canvas></div></div>
       </div>
       <div class="sectitle">Frente a lo producido</div>
       <div class="panel">
-        <div class="pt">Rechazos por grupo vs producción del mismo período</div>
-        <div class="ph">Prendas cortadas contra prendas de O/Corte inspeccionadas · la línea es el % de rechazo</div>
+        <div class="pt">Rechazos por Grupo vs producción del mismo período</div>
+        <div class="ph">Prendas cortadas contra prendas de O/C inspeccionadas · la línea es el % inspeccionado</div>
         <div class="cwrap" style="height:330px"><canvas id="c_grupo"></canvas></div>
         <div class="foot" id="f_grupo"></div>
       </div>
@@ -183,7 +183,7 @@
         <div class="cwrap" style="height:320px"><canvas id="c_tela"></canvas></div>
       </div>
       <div class="panel">
-        <div class="pt">O/Corte rechazadas y su estado actual</div>
+        <div class="pt">O/C rechazadas y su estado actual</div>
         <div class="ph" id="h_trech"></div>
         <div class="tscroll"><table id="t_rech"></table></div>
       </div>
@@ -246,7 +246,7 @@
       </div>
       <div class="panel">
         <div class="pt">Evolución mensual</div>
-        <div class="ph">Partidas revisadas y % de partidas rechazadas</div>
+        <div class="ph">Partidas revisadas y % de Partidas Rechazadas</div>
         <div class="cwrap" style="height:300px"><canvas id="c_tend4"></canvas></div>
       </div>
       <div class="panel">
@@ -636,9 +636,9 @@ function secCorte(){
   var prIns=sum(ins,function(r){return r.prendas;});
 
   el('k2').innerHTML=
-    kpi(fp(ratio(rech.length,ocs.length)),'% de rechazo de O/Corte',rech.length+' de '+fn(ocs.length)+' auditadas','primary')+
-    kpi(fn(ocs.length),'O/Corte auditadas',etiqueta())+
-    kpi(fp(ratio(prRech,prendas)),'% de prendas en O/C rechazadas',fn(prRech)+' de '+fn(prendas))+
+    kpi(fp(ratio(rech.length,ocs.length)),'% Rech sobre N° O/C',rech.length+' de '+fn(ocs.length)+' auditadas','primary')+
+    kpi(fn(ocs.length),'N° O/C auditadas',etiqueta())+
+    kpi(fp(ratio(prRech,prendas)),'% Rech sobre N° Prendas',fn(prRech)+' de '+fn(prendas))+
     kpi(cort>0?fn(cort):'—','Prendas cortadas',cort>0?'liquidación del Sistema':'sin liquidación del período')+
     kpi(cort>0?fp(ratio(prIns,cort)):'—','% inspeccionado sobre lo producido',cort>0?fn(prIns)+' prendas inspeccionadas':'');
 
@@ -671,7 +671,7 @@ function secCorte(){
   var anios=(ST.anio==='CMP')?ANIOS:[ST.anio], ds2=[];
   if(ST.anio==='CMP'){
     anios.forEach(function(a,i){
-      ds2.push({type:'line',label:'% rechazo O/C '+a,borderColor:[C.rose,C.slate,C.taupe][i%3],
+      ds2.push({type:'line',label:'% Rech sobre N° O/C '+a,borderColor:[C.rose,C.slate,C.taupe][i%3],
         backgroundColor:[C.rose,C.slate,C.taupe][i%3],borderWidth:2.5,tension:.3,spanGaps:true,pointRadius:3,yAxisID:'y1',
         data:MESES.map(function(m){
           var s=COR.aud.filter(function(r){ return r.anio===a&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; });
@@ -679,7 +679,7 @@ function secCorte(){
           var p=ultimoPorOC(s), k=Object.keys(p);
           return ratio(k.filter(function(x){return p[x].estado==='RECHAZADO';}).length,k.length)*100; })});
     });
-    el('t2h').textContent='Comparativo entre años · % de rechazo de O/Corte por mes';
+    el('t2h').textContent='Comparativo entre años · % Rech sobre N° O/C por mes';
   }else{
     var ms=MESES.filter(function(m){ return COR.aud.some(function(r){ return r.anio===ST.anio&&r.mes===m; }); });
     var setM=ms.map(function(m){ return COR.aud.filter(function(r){ return r.anio===ST.anio&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; }); });
@@ -702,7 +702,7 @@ function secCorte(){
   mk('c_tend2',{data:{labels:lb,datasets:ds2},options:{
     plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
-    scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'O/Corte'}},
+    scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'N° O/C'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
       x:{grid:{display:false}}}}});
 
