@@ -239,9 +239,11 @@
           <div><label>Total prendas</label><input type="number" id="a_prendas" min="0"></div>
           <div><label>Merma</label><input type="number" id="a_merma" min="0"></div>
           <div><label>Prendas despachadas</label><input type="number" id="a_desp" min="0"></div>
-          <div><label>Auditor tintorería</label><input type="text" id="a_audt" list="dl_auditores" autocomplete="off"></div>
+          <div><label>Auditor tintorería</label><select id="a_audt"></select>
+            <input type="text" id="a_audt_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
           <div><label>Módulo / Taller</label><select id="a_modulo"></select></div>
-          <div><label>Auditor de corte</label><input type="text" id="a_auditor" list="dl_auditores" autocomplete="off"></div>
+          <div><label>Auditor de corte</label><select id="a_auditor"></select>
+            <input type="text" id="a_auditor_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
         </div>
 
         <div class="grid" style="margin-top:12px">
@@ -283,12 +285,14 @@
           </div>
           <div style="grid-column:span 2"><label>Artículo</label><input type="text" id="d_art" list="dl_articulos" autocomplete="off"></div>
           <div><label>N° de prendas <span class="req">*</span></label><input type="number" id="d_prendas" min="1"></div>
-          <div><label>Auditor tintorería</label><input type="text" id="d_audt" list="dl_auditores" autocomplete="off"></div>
+          <div><label>Auditor tintorería</label><select id="d_audt"></select>
+            <input type="text" id="d_audt_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
           <div><label>Tintorería</label>
             <select id="d_tint"></select>
             <input type="text" id="d_tint_otra" placeholder="Nombre de la tintorería" autocomplete="off" style="display:none;margin-top:6px">
           </div>
-          <div><label>Auditor lavandería</label><input type="text" id="d_audl" list="dl_auditores" autocomplete="off"></div>
+          <div><label>Auditor lavandería</label><select id="d_audl"></select>
+            <input type="text" id="d_audl_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
         </div>
       </div>
 
@@ -351,9 +355,11 @@
           <div><label>Grupo</label><input type="text" id="t_grupo" list="dl_grupos" autocomplete="off"></div>
           <div><label>Color</label><input type="text" id="t_color" list="dl_colores" autocomplete="off"></div>
           <div><label>Peso (kg)</label><input type="number" id="t_peso" min="0" step="0.01"></div>
-          <div><label>Auditores</label><input type="text" id="t_auditores" list="dl_auditores" autocomplete="off"></div>
+          <div><label>Auditores</label><select id="t_auditores"></select>
+            <input type="text" id="t_auditores_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
           <div><label>Estado <span class="req">*</span></label><select id="t_estado"></select></div>
-          <div><label>Código de origen del defecto</label><input type="text" id="t_origen" list="dl_origendef" placeholder="TIN-002" autocomplete="off"></div>
+          <div><label>Código de origen del defecto</label><select id="t_origen"></select>
+            <input type="text" id="t_origen_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
         </div>
         <div style="margin-top:12px"><label>Observaciones</label>
           <textarea id="t_obs"></textarea></div>
@@ -1265,8 +1271,58 @@ function datalist(id, lista){
   var d = el(id); if(!d) return;
   d.innerHTML = lista.map(function(v){ return '<option value="'+String(v).replace(/"/g,'&quot;')+'">'; }).join('');
 }
-/* La tintorería se elige de una lista: escribirla a mano fue lo que hizo que TEXTIMAX
-   apareciera de tres formas distintas y partiera los totales. */
+/* Campos que se eligen de una lista en vez de escribirse: es lo que evita que un mismo
+   nombre aparezca de varias formas (M.CHILLON / MODULO CHILLON) y parta los totales.
+   Todos tienen la opción "Otra", y lo que se agrega ahí queda en la lista para la próxima. */
+var CERRADOS = {
+  t_tint:'TINTORERIA', d_tint:'TINTORERIA',
+  a_audt:'AUDITOR', a_auditor:'AUDITOR', d_audt:'AUDITOR', d_audl:'AUDITOR', t_auditores:'AUDITOR',
+  t_origen:'ORIGEN_DEF'
+};
+function pintarCerrados(){
+  Object.keys(CERRADOS).forEach(function(id){ listaCerrada(id, CERRADOS[id]); });
+}
+function listaCerrada(id, tipo){
+  var s2 = el(id); if(!s2) return;
+  var lista = (CAT[tipo] || []).slice();
+  var actual = s2.value;
+  s2.innerHTML = '<option value="">— elegir —</option>' +
+    lista.map(function(v){ return '<option value="'+String(v).replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('') +
+    '<option value="__OTRA__">➕ Otra (escribirla)</option>';
+  s2.onchange = function(){
+    var otra = el(id+'_otra'); if(!otra) return;
+    if(s2.value === '__OTRA__'){ otra.style.display=''; otra.focus(); }
+    else { otra.style.display='none'; otra.value=''; }
+  };
+  if(actual) ponerCerrado(id, actual);
+}
+function valorCerrado(id){
+  var s2 = el(id); if(!s2) return '';
+  if(s2.value === '__OTRA__') return UP(el(id+'_otra') ? el(id+'_otra').value : '');
+  return UP(s2.value);
+}
+function ponerCerrado(id, valor){
+  var s2 = el(id); if(!s2) return;
+  var v = T(valor), otra = el(id+'_otra');
+  if(otra){ otra.style.display='none'; otra.value=''; }
+  if(!v){ s2.value=''; return; }
+  var ops = s2.options || [], hay = false;
+  for(var i=0;i<ops.length;i++){ if(ops[i].value===v){ hay=true; break; } }
+  if(!hay){
+    try{ s2.insertBefore(new Option(v, v), ops[ops.length-1] || null); }
+    catch(e){ s2.innerHTML += '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }
+  }
+  s2.value = v;
+}
+/** Tras guardar, el valor nuevo queda disponible para todos los campos de ese tipo. */
+function sumarACatalogo(tipo, valor){
+  var v=UP(valor); if(!v) return;
+  if(!CAT[tipo]) CAT[tipo]=[];
+  if(CAT[tipo].indexOf(v)>=0) return;
+  CAT[tipo].push(v);
+  Object.keys(CERRADOS).forEach(function(id){ if(CERRADOS[id]===tipo) listaCerrada(id,tipo); });
+}
+
 function listaTint(id){
   var s2 = el(id); if(!s2) return;
   var lista = (CAT.TINTORERIA || []).slice();
@@ -1307,8 +1363,7 @@ function cargarCatalogos(){
     TELAMAP = {};
     TELAS.forEach(function(t){ TELAMAP[String(t.cod).toUpperCase()] = t.desc; });
     datalist('dl_telas', TELAS.map(function(t){ return t.cod; }));
-    listaTint('t_tint'); listaTint('d_tint');
-    datalist('dl_auditores', CAT.AUDITOR || []);
+    pintarCerrados();
     opciones('a_modulo', CAT.MODULO_TALLER || [], true);
     opciones('a_origen', CAT.ORIGEN_CORTE || ['S/O','TEXTIL','CORTE'], false);
     opciones('t_estado', CAT.ESTADO_TINT || [], true);
@@ -1322,6 +1377,46 @@ function cargarCatalogos(){
 function estadosAud(tipo){
   var base = (tipo==='SEGUIMIENTO') ? (CAT.ESTADO_SEG || []) : ['APROBADO','RECHAZADO'];
   opciones('a_estado', base, true);
+}
+
+/* Los campos que crecen todo el tiempo (grupo, color, estilo) no se pueden cerrar:
+   cada pedido trae valores nuevos. En su lugar, si lo escrito se parece mucho a algo
+   ya registrado, se avisa antes de guardar para que no nazca una variante. */
+function normNombre(v){
+  return UP(v).replace(/[ÁÀ]/g,'A').replace(/[ÉÈ]/g,'E').replace(/[ÍÌ]/g,'I')
+    .replace(/[ÓÒ]/g,'O').replace(/[ÚÙ]/g,'U').replace(/Ñ/g,'N')
+    .replace(/[^A-Z0-9]/g,'');
+}
+function vigilar(inpId, listaId){
+  var c = el(inpId), d = el(listaId);
+  if(!c || !d || !c.addEventListener) return;
+  var hint = null;
+  try{
+    hint = document.createElement('div');
+    hint.className = 'hint'; hint.style.display = 'none';
+    c.parentNode.appendChild(hint);
+  }catch(e){ hint = null; }
+  if(!hint) return;
+  c.addEventListener('blur', function(){
+    hint.style.display='none';
+    var v = T(c.value); if(!v) return;
+    c.value = v = UP(v).replace(/\s+/g,' ');
+    var n = normNombre(v); if(!n) return;
+    var ops = d.options || [], igual = null;
+    for(var i=0;i<ops.length;i++){
+      var o = T(ops[i].value);
+      if(o === v) return;                       /* exacto: nada que avisar */
+      if(!igual && normNombre(o) === n) igual = o;
+    }
+    if(igual){
+      hint.style.display='';
+      hint.innerHTML = '<span style="color:#B45309;font-weight:700">Ya existe como</span> '+
+        '<button type="button" class="btn sec mini" style="padding:2px 8px;font-size:11.5px">'+esc(igual)+'</button>'+
+        ' <span style="color:#5F726C">— úsalo para no duplicar</span>';
+      var b = hint.querySelector('button');
+      if(b) b.onclick = function(){ c.value = igual; hint.style.display='none'; };
+    }
+  });
 }
 
 /* autocompletado de artículo desde el código de tela */
@@ -1564,14 +1659,15 @@ var AUD_EXISTE = null;
 /* cada búsqueda arranca de cero: si no se vacía, quedan los datos del registro anterior */
 function vaciarFormAud(){
   ['a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma',
-   'a_desp','a_audt','a_auditor','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
+   'a_desp','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
+  ['a_audt','a_auditor'].forEach(function(id){ ponerCerrado(id,''); });
   el('a_modulo').value=''; el('a_origen').value='S/O'; el('a_estado').value='';
   el('a_fecha').value = hoyDMY();
   el('a_codh').textContent = 'Al escribirlo se completa el artículo solo';
   el('a_salida').innerHTML = '';
 }
 function vaciarFormTint(){
-  ponerTint('t_tint','');
+  ['t_tint','t_auditores','t_origen'].forEach(function(id){ ponerCerrado(id,''); });
   ['t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value = hoyDMY();
@@ -1615,11 +1711,12 @@ function pintarHistorialAud(res){
   el('a_ocnew').parentNode.style.display = 'none';
   estadosAud('SEGUIMIENTO');
   el('a_form').classList.remove('hide');
-  ['a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_audt','a_auditor'].forEach(function(id){
+  ['a_partida','a_estilo','a_grupo','a_cod','a_art','a_color'].forEach(function(id){
     var m = {a_partida:'partida',a_estilo:'estilo',a_grupo:'grupo',a_cod:'cod_tela',
-             a_art:'articulo',a_color:'color',a_audt:'auditor_tint',a_auditor:'auditor'};
+             a_art:'articulo',a_color:'color'};
     el(id).value = ult[m[id]] || '';
   });
+  ponerCerrado('a_audt', ult.auditor_tint); ponerCerrado('a_auditor', ult.auditor);
   el('a_prendas').value = ult.prendas || '';
   el('a_merma').value = ult.merma || '';
   el('a_desp').value = ult.despachadas || '';
@@ -1696,7 +1793,7 @@ function guardarAud(){
     partida:T(el('a_partida').value), estilo:T(el('a_estilo').value), grupo:UP(el('a_grupo').value),
     cod_tela:UP(el('a_cod').value), articulo:T(el('a_art').value), color:UP(el('a_color').value),
     prendas:N(el('a_prendas').value), merma:N(el('a_merma').value), despachadas:N(el('a_desp').value),
-    auditor_tint:UP(el('a_audt').value), modulo:T(el('a_modulo').value), auditor:UP(el('a_auditor').value),
+    auditor_tint:valorCerrado('a_audt'), modulo:T(el('a_modulo').value), auditor:valorCerrado('a_auditor'),
     origen:T(el('a_origen').value)||'S/O', estado:estado,
     obs:T(el('a_obs').value), observaciones:T(el('a_obs2').value)};
 
@@ -1712,6 +1809,7 @@ function guardarAud(){
             ' registro(s). Estado actual: <b>'+esc(res.actual.estado)+'</b>.');
           if(r.cod_tela && r.articulo && !TELAMAP[r.cod_tela]){ TELAMAP[r.cod_tela]=r.articulo;
             TELAS.push({cod:r.cod_tela,desc:r.articulo}); datalist('dl_telas',TELAS.map(function(t){return t.cod;})); }
+          sumarACatalogo('AUDITOR', r.auditor); sumarACatalogo('AUDITOR', r.auditor_tint);
         }else{
           msg('a_salida','err','No se pudo confirmar el guardado. Vuelve a intentar.');
         }
@@ -1724,7 +1822,8 @@ function guardarAud(){
 function limpiarAud(){
   OC_ACTUAL='';
   ['a_oc','a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma','a_desp',
-   'a_audt','a_auditor','a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
+   'a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
+  ['a_audt','a_auditor'].forEach(function(id){ ponerCerrado(id,''); });
   el('a_fecha').value = hoyDMY();
   el('a_hist').innerHTML=''; el('a_salida').innerHTML='';
   el('a_form').classList.add('hide');
@@ -1769,8 +1868,8 @@ function guardarDef(){
     grupo:UP(el('d_grupo').value), cliente:UP(el('d_grupo').value).split('-')[0],
     color:UP(el('d_color').value), cod_tela:UP(el('d_cod').value), articulo:T(el('d_art').value),
     estilo:T(el('d_estilo').value), prendas:prendas, motivo:T(el('d_motivo').value),
-    auditor_tinto:UP(el('d_audt').value), tintoreria:valorTint('d_tint'),
-    auditor_lav:UP(el('d_audl').value)};
+    auditor_tinto:valorCerrado('d_audt'), tintoreria:valorCerrado('d_tint'),
+    auditor_lav:valorCerrado('d_audl')};
   el('d_guardar').disabled = true;
   el('d_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   var totalEnv = det.reduce(function(a,b){ return a+b.cant; },0);
@@ -1787,9 +1886,9 @@ function limpiarDef(soloDefectos){
   Array.prototype.forEach.call(document.querySelectorAll('.dfin'), function(i){ i.value=''; i.parentNode.className='df'; });
   totalDefectos();
   if(soloDefectos) return;
-  ponerTint('d_tint','');
-  ['d_partida','d_oc','d_grupo','d_color','d_estilo','d_cod','d_art','d_prendas','d_audt',
-   'd_audl','d_motivo'].forEach(function(id){ el(id).value=''; });
+  ['d_tint','d_audt','d_audl'].forEach(function(id){ ponerCerrado(id,''); });
+  ['d_partida','d_oc','d_grupo','d_color','d_estilo','d_cod','d_art','d_prendas','d_motivo']
+    .forEach(function(id){ el(id).value=''; });
   el('d_fecha').value = hoyDMY();
   el('d_salida').innerHTML='';
 }
@@ -1823,15 +1922,14 @@ function pintarHistorialTint(res){
   el('t_titulo').textContent = 'Agregar revisión';
   el('t_sub').textContent = 'Se guarda como registro nuevo. Lo anterior no se borra.';
   el('t_form').classList.remove('hide');
-  ponerTint('t_tint', ult.tintoreria);
+  ponerCerrado('t_tint', ult.tintoreria);
+  ponerCerrado('t_auditores',''); ponerCerrado('t_origen', ult.origen && ult.origen!=='S/ORIGEN' ? ult.origen : '');
   el('t_art').value = ult.articulo || '';
   el('t_grupo').value = ult.grupo || '';
   el('t_color').value = ult.color || '';
   el('t_peso').value = ult.peso || '';
-  el('t_auditores').value = '';
   el('t_estado').value = '';
   el('t_obs').value = '';
-  el('t_origen').value = ult.origen && ult.origen!=='S/ORIGEN' ? ult.origen : '';
 }
 function buscarPartida(){
   var p = T(el('t_partida').value);
@@ -1847,20 +1945,19 @@ function guardarTint(){
   if(!p){ msg('t_salida','err','Falta la partida.'); return; }
   var estado = T(el('t_estado').value);
   if(!estado){ msg('t_salida','err','Elige el estado.'); return; }
-  if(!valorTint('t_tint')){ msg('t_salida','err','Elige la tintorería de la lista, o "Otra" si no está.'); return; }
+  if(!valorCerrado('t_tint')){ msg('t_salida','err','Elige la tintorería de la lista, o "Otra" si no está.'); return; }
   var fT = fechaValida('t_fecha','t_salida'); if(!fT) return;
-  var r = {fecha:fT, tintoreria:valorTint('t_tint'), partida:p,
+  var r = {fecha:fT, tintoreria:valorCerrado('t_tint'), partida:p,
     articulo:T(el('t_art').value), grupo:UP(el('t_grupo').value), color:UP(el('t_color').value),
-    peso:N(el('t_peso').value), auditores:UP(el('t_auditores').value), estado:estado,
-    obs:T(el('t_obs').value), origen:UP(el('t_origen').value)};
+    peso:N(el('t_peso').value), auditores:valorCerrado('t_auditores'), estado:estado,
+    obs:T(el('t_obs').value), origen:valorCerrado('t_origen')};
   el('t_guardar').disabled = true;
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
     TINT_TODO = null;   /* hay un registro nuevo: el reporte vuelve a traer los datos */
-    if(r.tintoreria && (CAT.TINTORERIA||[]).indexOf(r.tintoreria)<0){
-      CAT.TINTORERIA = (CAT.TINTORERIA||[]).concat([r.tintoreria]);
-      listaTint('t_tint'); listaTint('d_tint');
-    }
+    sumarACatalogo('TINTORERIA', r.tintoreria);
+    sumarACatalogo('AUDITOR', r.auditores);
+    sumarACatalogo('ORIGEN_DEF', r.origen);
     setTimeout(function(){
       jsonp(API+'?action=buscar_partida&partida='+encodeURIComponent(p), function(res){
         el('t_guardar').disabled=false; el('t_guardar').innerHTML='Guardar registro';
@@ -1875,8 +1972,8 @@ function guardarTint(){
   });
 }
 function limpiarTint(){
-  ponerTint('t_tint','');
-  ['t_partida','t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
+  ['t_tint','t_auditores','t_origen'].forEach(function(id){ ponerCerrado(id,''); });
+  ['t_partida','t_art','t_grupo','t_color','t_peso','t_obs']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value=hoyDMY();
   el('t_hist').innerHTML=''; el('t_salida').innerHTML='';
@@ -1930,6 +2027,11 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>]/g,function(c){return
 ligarDrop('drop','file',leerArchivos);
 ligarTela('a_cod','a_art','a_codh');
 ligarTela('d_cod','d_art',null);
+
+[['a_grupo','dl_grupos'],['a_estilo','dl_estilos'],['a_color','dl_colores'],['a_art','dl_articulos'],
+ ['d_grupo','dl_grupos'],['d_estilo','dl_estilos'],['d_color','dl_colores'],['d_art','dl_articulos'],
+ ['t_grupo','dl_grupos'],['t_color','dl_colores'],['t_art','dl_articulos']]
+ .forEach(function(p2){ vigilar(p2[0], p2[1]); });
 
 el('a_fver').onclick = function(){ verPorEstado('a'); };
 el('t_fver').onclick = function(){ verPorEstado('t'); };
