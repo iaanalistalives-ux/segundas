@@ -115,9 +115,9 @@
     </div>
 
     <div class="tabs no-print">
-      <button class="tb active" type="button" data-sec="s1">Segundas</button>
+      <button class="tb active" type="button" data-sec="s1">Segundas Piezas-Prendas</button>
       <button class="tb" type="button" data-sec="s2">Rechazos de Corte</button>
-      <button class="tb" type="button" data-sec="s3">Defectos textiles</button>
+      <button class="tb" type="button" data-sec="s3">Seguimiento Defectos Textiles</button>
       <button class="tb" type="button" data-sec="s4">Reporte diario tintorería</button>
     </div>
 
@@ -158,7 +158,7 @@
       <div class="kpis" id="k2"></div>
       <div class="kdual" id="kd2"></div>
       <div class="panel">
-        <div class="pt">Evolución de los rechazos de Corte</div>
+        <div class="pt">Evolución mensual de los Rechazos de Corte</div>
         <div class="ph" id="t2h"></div>
         <div class="cwrap" style="height:320px"><canvas id="c_tend2"></canvas></div>
       </div>
@@ -166,7 +166,7 @@
         <div class="panel"><div class="pt">Origen del defecto</div>
           <div class="ph" id="h_org">Sobre las inspecciones de Corte del período</div>
           <div class="cwrap" style="height:260px"><canvas id="c_origen"></canvas></div></div>
-        <div class="panel"><div class="pt">% de rechazo por módulo / taller</div>
+        <div class="panel"><div class="pt">% de Rechazos por Módulo / Taller de Corte</div>
           <div class="ph">O/Corte rechazadas ÷ O/Corte auditadas de cada uno</div>
           <div class="cwrap" style="height:260px"><canvas id="c_mod"></canvas></div></div>
       </div>
@@ -178,8 +178,8 @@
         <div class="foot" id="f_grupo"></div>
       </div>
       <div class="panel">
-        <div class="pt">Rechazos por artículo</div>
-        <div class="ph">Con el nombre de la tela, no solo el código</div>
+        <div class="pt">Rechazos de O/C asociado a Código de Tela</div>
+        <div class="ph" id="h_tela">Con el nombre de la tela, no solo el código</div>
         <div class="cwrap" style="height:320px"><canvas id="c_tela"></canvas></div>
       </div>
       <div class="panel">
@@ -198,7 +198,7 @@
       </div>
       <div class="kpis" id="k3"></div>
       <div class="panel">
-        <div class="pt">Detalle defectos textiles depurados más recurrentes</div>
+        <div class="pt">Gráfico de Recurrencia Defectos Textiles Depurados</div>
         <div class="ph">Haz clic en una barra para ver en qué telas, grupos y O/Corte aparece</div>
         <div class="cwrap" style="height:420px"><canvas id="c_pareto"></canvas></div>
         <div class="foot" id="f_pareto"></div>
@@ -209,10 +209,10 @@
         <div class="tscroll"><table id="t_traza"></table></div>
       </div>
       <div class="grid2">
-        <div class="panel"><div class="pt">Defectos por grupo</div>
-          <div class="ph">Participación de cada grupo en el total de defectos</div>
+        <div class="panel"><div class="pt">Clasificación de Defectos por Cliente</div>
+          <div class="ph">Participación de cada cliente en el total de defectos</div>
           <div class="cwrap" style="height:300px"><canvas id="c_g3"></canvas></div></div>
-        <div class="panel"><div class="pt">Defectos por tela</div>
+        <div class="panel"><div class="pt">Recurrencia de defectos por Código de Tela</div>
           <div class="ph">Código y nombre de la tela</div>
           <div class="cwrap" style="height:300px"><canvas id="c_t3"></canvas></div></div>
       </div>
@@ -236,17 +236,17 @@
           <div class="ph" id="h_est4"></div>
           <div class="cwrap" style="height:270px"><canvas id="c_est4"></canvas></div></div>
         <div class="panel"><div class="pt">Kilos auditados por tintorería</div>
-          <div class="ph">Peso total revisado en el período</div>
+          <div class="ph" id="h_kg4">Peso total revisado en el período</div>
           <div class="cwrap" style="height:270px"><canvas id="c_kg4"></canvas></div></div>
       </div>
       <div class="panel">
         <div class="pt">Desempeño por tintorería</div>
-        <div class="ph">Partidas revisadas y % que terminó observada o rechazada</div>
+        <div class="ph">Partidas revisadas y % de Partidas Rechazadas</div>
         <div class="cwrap" style="height:330px"><canvas id="c_tint4"></canvas></div>
       </div>
       <div class="panel">
         <div class="pt">Evolución mensual</div>
-        <div class="ph">Partidas revisadas y % de partidas no aprobadas</div>
+        <div class="ph">Partidas revisadas y % de partidas rechazadas</div>
         <div class="cwrap" style="height:300px"><canvas id="c_tend4"></canvas></div>
       </div>
       <div class="panel">
@@ -281,6 +281,11 @@ var MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SE
 var M3=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
 
 var SEG=null, COR=null, DEF=null, TIN=null, CH={}, ST={anio:null,mes:'TODOS',sec:'s1',defSel:null};
+/* ALIAS y EXCLUIR salen de la hoja CATALOGOS: se editan ahí, sin tocar el código.
+   ALIAS  -> "M.CHILLON=YOSATEX"   ·   EXCLUIR -> "ESTAMP HUANS" */
+var ALIAS={}, EXCLUIR={};
+function ali(v){ var k=T(v).toUpperCase(); return ALIAS[k]||k; }
+function excl(v){ return !!EXCLUIR[T(v).toUpperCase()]; }
 var SNAPSHOT = null; /*__SNAP__*/
 
 function el(id){ return document.getElementById(id); }
@@ -336,7 +341,7 @@ function error(m){
 
 var CARGA={s1:false,s2:false,s3:false,s4:false};
 var SECDATA={s1:'read',s2:'read_corte',s3:'read_deftex',s4:'read_tint'};
-var NOMBRE={s1:'segundas',s2:'rechazos de Corte',s3:'defectos textiles',s4:'reporte diario'};
+var NOMBRE={s1:'segundas piezas-prendas',s2:'rechazos de Corte',s3:'seguimiento defectos textiles',s4:'reporte diario'};
 
 /* dentro del portal las pestañas y el encabezado sobran: el panel lateral ya elige el indicador */
 var EMBEBIDO = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
@@ -347,8 +352,20 @@ function ajustarEmbebido(){
   var w=document.querySelector('.wrap'); if(w){ w.style.padding='14px 18px 30px'; w.style.maxWidth='none'; }
 }
 
+function cargarAlias(){
+  jsonp(API+'?action=catalogos', function(res){
+    if(!res||!res.ok||!res.catalogos) return;
+    (res.catalogos.ALIAS||[]).forEach(function(v){
+      var p2=String(v).split('='); if(p2.length===2) ALIAS[T(p2[0]).toUpperCase()]=T(p2[1]).toUpperCase();
+    });
+    (res.catalogos.EXCLUIR||[]).forEach(function(v){ EXCLUIR[T(v).toUpperCase()]=1; });
+    if(ST.sec) render();
+  }, function(){});
+}
+
 function arranque(){
   ajustarEmbebido();
+  cargarAlias();
   if(SNAPSHOT){
     SEG=SNAPSHOT.seg; COR=SNAPSHOT.cor; DEF=SNAPSHOT.def; TIN=SNAPSHOT.tin;
     var s0=SNAPSHOT.sec||'s1';
@@ -491,7 +508,8 @@ function secSegundas(){
   var pctPz=wp.pct, pctPr=wr.pct, decl=false;
   if(pctPz==null && pz.length===1 && pz[0].pct>0){ pctPz=pz[0].pct; decl=true; }
   if(pctPr==null && pr.length===1 && pr[0].pct>0){ pctPr=pr[0].pct; decl=true; }
-  var bd=decl?'<span class="badge">declarado</span>':(wp.pct!=null?'<span class="badge ok">calculado</span>':'');
+  var bd=decl?'<span class="badge" title="Viene del cuadro anterior de Calidad">declarado</span>'
+             :(wp.pct!=null?'<span class="badge ok" title="Calculado por el tablero desde la data del Sistema">calculado</span>':'');
   var sub=decl?'valor declarado, sin denominador':(wp.pct!=null?fn(wp.seg)+' sobre '+fn(wp.base)+' confeccionadas':'sin denominador');
 
   el('k1').innerHTML =
@@ -502,7 +520,12 @@ function secSegundas(){
     kpi(fp(META_PZ),'Meta','piezas y prendas','meta');
 
   var av=[];
-  if(tot.some(function(r){return r.origen==='MANUAL';}))
+  if(decl)
+    av.push('<b>¿Declarado o calculado?</b> <b>Declarado</b> es el porcentaje tal como venía escrito en el cuadro anterior '+
+      'de Calidad: no se puede comprobar porque ese archivo no guardaba cuántas prendas se confeccionaron. '+
+      '<b>Calculado</b> es el que obtiene el tablero dividiendo las segundas entre las confeccionadas del reporte del Sistema, '+
+      'y por eso muestra las dos cifras debajo. Los meses declarados se reemplazan solos cuando ese mes se cargue del Sistema.');
+  else if(tot.some(function(r){return r.origen==='MANUAL';}))
     av.push('Los meses <b>MANUAL</b> vienen del cuadro anterior de Calidad: traen el porcentaje pero no el denominador. Se dibujan punteados y se reemplazan solos cuando ese mes se cargue del Sistema.');
   if(wp.pct!=null && wp.n<nM)
     av.push('El % acumulado se calcula solo sobre los <b>'+wp.n+'</b> mes(es) con datos del Sistema, no sobre los '+nM+' del período.');
@@ -660,19 +683,19 @@ function secCorte(){
   }else{
     var ms=MESES.filter(function(m){ return COR.aud.some(function(r){ return r.anio===ST.anio&&r.mes===m; }); });
     var setM=ms.map(function(m){ return COR.aud.filter(function(r){ return r.anio===ST.anio&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; }); });
-    ds2=[{type:'bar',label:'O/Corte auditadas',yAxisID:'y',order:3,backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,
+    ds2=[{type:'bar',label:'N° O/C auditadas',yAxisID:'y',order:3,backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,
         data:setM.map(function(s){ return Object.keys(ultimoPorOC(s)).length; })},
-      {type:'line',label:'% rechazo O/C',yAxisID:'y1',order:1,borderColor:C.rose,backgroundColor:C.rose,
+      {type:'line',label:'% Rech sobre N° O/C',yAxisID:'y1',order:1,borderColor:C.rose,backgroundColor:C.rose,
         borderWidth:2.5,tension:.3,pointRadius:3,
         data:setM.map(function(s){ var p=ultimoPorOC(s), k=Object.keys(p);
           var v=ratio(k.filter(function(x){return p[x].estado==='RECHAZADO';}).length,k.length); return v==null?null:v*100; })},
-      {type:'line',label:'% prendas en O/C rechazadas',yAxisID:'y1',order:2,borderColor:C.sage,backgroundColor:C.sage,
+      {type:'line',label:'% Rech sobre N° Prendas',yAxisID:'y1',order:2,borderColor:C.sage,backgroundColor:C.sage,
         borderWidth:2.5,tension:.3,pointRadius:3,borderDash:[5,4],
         data:setM.map(function(s){ var p=ultimoPorOC(s), k=Object.keys(p);
           var num=0,den=0; k.forEach(function(x){ den+=p[x].prendas; if(p[x].estado==='RECHAZADO') num+=p[x].prendas; });
           var v=ratio(num,den); return v==null?null:v*100; })}];
     ds2.labels=ms;
-    el('t2h').textContent='Año '+ST.anio+' · O/Corte auditadas y % de rechazo por mes';
+    el('t2h').textContent='Año '+ST.anio+' · N° O/C auditadas y % de rechazo por mes';
   }
   var lb=(ST.anio==='CMP')?M3:MESES.filter(function(m){ return COR.aud.some(function(r){ return r.anio===ST.anio&&r.mes===m; }); })
     .map(function(m){ return M3[MESES.indexOf(m)]; });
@@ -697,7 +720,7 @@ function secCorte(){
   el('h_org').textContent = ins.length ? fn(ins.length)+' inspecciones · '+etiqueta()
     : 'Sin inspecciones en el período';
 
-  var gm=group(ocs,function(r){return r.modulo;});
+  var gm=group(ocs,function(r){return ali(r.modulo);});
   var mk2=Array.from(gm.keys()).filter(function(k){ return gm.get(k).length>=3; });
   mk2.sort(function(a,b){ return ratio(gm.get(b).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(b).length)
                               -ratio(gm.get(a).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(a).length); });
@@ -734,8 +757,12 @@ function secCorte(){
 
   var TELA={}; COR.liq.forEach(function(r){ if(r.cod_tela && r.tela && !TELA[r.cod_tela]) TELA[r.cod_tela]=r.tela; });
   COR.aud.forEach(function(r){ if(r.cod_tela && r.articulo && !TELA[r.cod_tela]) TELA[r.cod_tela]=r.articulo; });
-  var gt=group(rech,function(r){return r.cod_tela;});
-  var tk=claves(gt,function(v){return v.length;}).slice(0,10);
+  var conTela=rech.filter(function(r){ return T(r.cod_tela); });
+  var sinTela=rech.length-conTela.length;
+  var gt=group(conTela,function(r){return r.cod_tela;});
+  var todasT=claves(gt,function(v){return v.length;});
+  var tk=todasT.slice(0,10);
+  var cubre=sum(tk,function(k){ return gt.get(k).length; });
   mk('c_tela',{type:'bar',data:{labels:tk.map(function(k){ var d=TELA[k]; return d?[k,d.substring(0,30)]:k; }),
     datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),backgroundColor:C.slate,borderRadius:3,barThickness:15}]},
     options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
@@ -744,6 +771,11 @@ function secCorte(){
         label:function(c){ return fn(c.parsed.x)+' O/Corte rechazadas'; }}}},
       scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
     plugins:[barLabels]});
+  el('h_tela').textContent = rech.length
+    ? ('Muestra los 10 códigos con más rechazos: '+fn(cubre)+' de las '+fn(rech.length)+
+       ' O/Corte rechazadas del período'+(todasT.length>10?' ('+todasT.length+' códigos en total)':'')+
+       (sinTela?' · '+fn(sinTela)+' sin código de tela registrado':''))
+    : 'Sin O/Corte rechazadas en el período';
 
   var todos=ultimoPorOC(aud);
   var filas=rech.map(function(r){ return {a:r, ult:todos[r.oc.toUpperCase()]||r}; })
@@ -786,14 +818,14 @@ function secDefectos(){
   mk('c_pareto',{data:{labels:top,datasets:[
     {type:'bar',label:'% del total de defectos',data:top.map(function(k){ return acum[k]/(totDef||1)*100; }),
      backgroundColor:C.taupe,borderRadius:3,barThickness:15,yAxisID:'y'},
-    {type:'line',label:'% acumulado',data:accA,borderColor:C.slate,backgroundColor:C.slate,
+    {type:'line',label:'Frecuencia acumulada',data:accA,borderColor:C.slate,backgroundColor:C.slate,
      borderWidth:2,tension:.25,pointRadius:2.5,yAxisID:'y1'}]},
     options:{indexAxis:'y',layout:{padding:{right:52}},
       onClick:function(e,els){ if(els.length){ ST.defSel=top[els[0].index]; traza(); } },
       plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
         barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
         tooltip:{callbacks:{label:function(c){ return c.datasetIndex===0
-          ? fn(acum[c.label])+' incidencias · '+c.parsed.x.toFixed(2)+'%' : 'Acumulado: '+c.parsed.x.toFixed(1)+'%'; }}}},
+          ? fn(acum[c.label])+' incidencias · '+c.parsed.x.toFixed(2)+'%' : 'Frecuencia acumulada: '+c.parsed.x.toFixed(1)+'%'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},
         y:{grid:{display:false}},y1:{display:false}}},
     plugins:[barLabels]});
@@ -881,7 +913,8 @@ function estadoClase(e){
   return 'sg';
 }
 function secTint(){
-  var f=TIN.filter(enP);
+  var f=TIN.filter(enP).filter(function(r){ return !excl(r.tintoreria); })
+    .map(function(r){ var o={}; for(var k in r) o[k]=r[k]; o.tintoreria=ali(r.tintoreria); return o; });
   /* estado actual por partida: la última revisión */
   var ult={};
   f.forEach(function(r){ var k=r.partida.toUpperCase();
@@ -897,7 +930,7 @@ function secTint(){
     kpi(fn(kg),'Kilos auditados',etiqueta())+
     kpi(fp(ratio(apro,partidas.length)),'% aprobadas',fn(apro)+' partidas')+
     kpi(fp(ratio(obs,partidas.length)),'% observadas',fn(obs)+' partidas','meta')+
-    kpi(fp(ratio(rec,partidas.length)),'% rechazadas',fn(rec)+' partidas','bad');
+    kpi(fp(ratio(rec,partidas.length)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
 
   var ge=group(partidas,function(r){return r.estado||'SIN ESTADO';});
   var ek=claves(ge,function(v){return v.length;});
@@ -913,6 +946,7 @@ function secTint(){
 
   var gk4=group(f,function(r){return r.tintoreria;});
   var tk4=claves(gk4,function(v){ return sum(v,function(r){return r.peso;}); }).slice(0,10);
+  el('h_kg4').innerHTML='Peso total revisado en el período · <b>'+fn(kg)+' kg</b> en total';
   mk('c_kg4',{type:'bar',data:{labels:tk4.map(function(k){ return k.substring(0,26); }),
     datasets:[{data:tk4.map(function(k){ return sum(gk4.get(k),function(r){return r.peso;}); }),
       backgroundColor:C.emer,borderRadius:3,barThickness:16}]},
@@ -927,13 +961,13 @@ function secTint(){
   mk('c_tint4',{data:{labels:pk4.map(function(k){ return k.substring(0,26); }),datasets:[
     {type:'bar',label:'Partidas revisadas',data:pk4.map(function(k){ return gp4.get(k).length; }),
      backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:3},
-    {type:'bar',label:'Observadas o rechazadas',data:pk4.map(function(k){
-      return gp4.get(k).filter(function(r){ return !/APROBADA/.test(r.estado); }).length; }),
+    {type:'bar',label:'Partidas rechazadas',data:pk4.map(function(k){
+      return gp4.get(k).filter(function(r){ return /RECHAZ/.test(r.estado); }).length; }),
      backgroundColor:C.rose,order:2},
-    {type:'line',label:'% no aprobadas',yAxisID:'y1',order:1,borderColor:C.taupe,backgroundColor:C.taupe,
+    {type:'line',label:'% de partidas rechazadas',yAxisID:'y1',order:1,borderColor:C.taupe,backgroundColor:C.taupe,
      borderWidth:2.5,tension:.3,pointRadius:3,
      data:pk4.map(function(k){ var s=gp4.get(k);
-       return ratio(s.filter(function(r){ return !/APROBADA/.test(r.estado); }).length,s.length)*100; })}]},
+       return ratio(s.filter(function(r){ return /RECHAZ/.test(r.estado); }).length,s.length)*100; })}]},
     options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?c.parsed.y.toFixed(1)+'%':fn(c.parsed.y)); }}}},
       scales:{y:{beginAtZero:true,grid:{color:C.wl}},
@@ -943,18 +977,18 @@ function secTint(){
   var anios4=(ST.anio==='CMP')?ANIOS:[ST.anio], ds4=[];
   anios4.forEach(function(a,i){
     var pm=MESES.map(function(m){
-      var s=TIN.filter(function(r){ return r.anio===a&&r.mes===m; });
+      var s=TIN.filter(function(r){ return r.anio===a&&r.mes===m&&!excl(r.tintoreria); });
       var u={}; s.forEach(function(r){ var k=r.partida.toUpperCase();
         if(!u[k]||(r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
       return Object.keys(u).map(function(k){ return u[k]; });
     });
     ds4.push({type:'bar',label:'Partidas '+(anios4.length>1?a:''),data:pm.map(function(s){return s.length;}),
       backgroundColor:i?C.warm:C.wl,borderColor:C.warm,borderWidth:1,order:3});
-    ds4.push({type:'line',label:'% no aprobadas '+(anios4.length>1?a:''),yAxisID:'y1',order:1,
+    ds4.push({type:'line',label:'% de partidas rechazadas '+(anios4.length>1?a:''),yAxisID:'y1',order:1,
       borderColor:[C.rose,C.slate][i%2],backgroundColor:[C.rose,C.slate][i%2],borderWidth:2.5,tension:.3,
       pointRadius:3,spanGaps:true,
       data:pm.map(function(s){ if(!s.length) return null;
-        return s.filter(function(r){ return !/APROBADA/.test(r.estado); }).length/s.length*100; })});
+        return s.filter(function(r){ return /RECHAZ/.test(r.estado); }).length/s.length*100; })});
   });
   mk('c_tend4',{data:{labels:M3,datasets:ds4},options:{
     plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
@@ -1002,7 +1036,7 @@ function render(){
         (RARAS.length>6?' y '+(RARAS.length-6)+' más.':'.');
     }
     if(SNAPSHOT){
-      var nom2={s1:'Segundas',s2:'Rechazos de Corte',s3:'Defectos textiles',s4:'Reporte diario'};
+      var nom2={s1:'Segundas Piezas-Prendas',s2:'Rechazos de Corte',s3:'Seguimiento Defectos Textiles',s4:'Reporte diario'};
       el('est').textContent=(nom2[SNAPSHOT.sec||'s1'])+' · foto del '+SNAPSHOT.fecha;
       el('btnRefresh').style.display='none'; el('btnExport').style.display='none';
       el('avisoSnap').style.display='block';
@@ -1035,7 +1069,7 @@ function exportar(){
     var a=document.createElement('a');
     var d=new Date(), p2=function(n){ return ('0'+n).slice(-2); };
     a.href=URL.createObjectURL(blob);
-    var nom={s1:'Segundas',s2:'Rechazos_de_Corte',s3:'Defectos_textiles',s4:'Reporte_diario'};
+    var nom={s1:'Segundas_Piezas_Prendas',s2:'Rechazos_de_Corte',s3:'Seguimiento_Defectos_Textiles',s4:'Reporte_diario'};
     a.download=nom[ST.sec]+'_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'.html';
     document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 2000);
