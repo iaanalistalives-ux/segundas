@@ -167,7 +167,7 @@
           <div class="ph" id="h_org">Sobre las inspecciones de Corte del período</div>
           <div class="cwrap" style="height:260px"><canvas id="c_origen"></canvas></div></div>
         <div class="panel"><div class="pt">% de Rechazos por Módulo / Taller de Corte</div>
-          <div class="ph">O/C rechazadas ÷ N° O/C auditadas de cada uno</div>
+          <div class="ph">O/C rechazadas ÷ N° O/C auditadas de cada uno. Al unificar dos talleres el porcentaje no se suma: se juntan sus O/Corte y se vuelve a dividir, por eso el resultado queda entre ambos.</div>
           <div class="cwrap" style="height:260px"><canvas id="c_mod"></canvas></div></div>
       </div>
       <div class="sectitle">Frente a lo producido</div>
@@ -313,7 +313,7 @@ var barLabels={id:'barLabels',afterDatasetsDraw:function(ch,a,opts){
       var v=ds.data[i]; if(v==null) return;
       var ctx=ch.ctx; ctx.save();
       ctx.font='700 11px Calibri, Arial, sans-serif'; ctx.fillStyle='#5F726C'; ctx.textBaseline='middle';
-      ctx.fillText(fmt(v),bar.x+6,bar.y); ctx.restore();
+      ctx.fillText(fmt(v,i,ds),bar.x+6,bar.y); ctx.restore();
     });
   });
 }};
@@ -520,19 +520,21 @@ function secSegundas(){
     kpi(fp(META_PZ),'Meta','piezas y prendas','meta');
 
   var av=[];
-  if(decl)
-    av.push('<b>¿Declarado o calculado?</b> <b>Declarado</b> es el porcentaje tal como venía escrito en el cuadro anterior '+
-      'de Calidad: no se puede comprobar porque ese archivo no guardaba cuántas prendas se confeccionaron. '+
-      '<b>Calculado</b> es el que obtiene el tablero dividiendo las segundas entre las confeccionadas del reporte del Sistema, '+
-      'y por eso muestra las dos cifras debajo. Los meses declarados se reemplazan solos cuando ese mes se cargue del Sistema.');
-  else if(tot.some(function(r){return r.origen==='MANUAL';}))
-    av.push('Los meses <b>MANUAL</b> vienen del cuadro anterior de Calidad: traen el porcentaje pero no el denominador. Se dibujan punteados y se reemplazan solos cuando ese mes se cargue del Sistema.');
+  av.push('<b>Declarado y calculado — la diferencia:</b> <span class="badge ok">calculado</span> es el '+
+    'porcentaje que obtiene este tablero dividiendo las segundas entre las prendas confeccionadas que informa '+
+    'el reporte del Sistema; por eso debajo se ven las dos cifras y cualquiera puede comprobarlo. '+
+    '<span class="badge">declarado</span> es el porcentaje tal como venía escrito en el cuadro anterior de '+
+    'Calidad: ese archivo no guardaba cuántas prendas se confeccionaron, así que el número se muestra pero '+
+    'no se puede comprobar. Los meses declarados se reemplazan solos en cuanto ese mes se cargue del Sistema.');
+  if(tot.some(function(r){return r.origen==='MANUAL';}))
+    av.push('Los meses <b>MANUAL</b> son los que vienen de ese cuadro anterior: se dibujan con línea punteada '+
+      'y punto triangular para distinguirlos a simple vista.');
   if(wp.pct!=null && wp.n<nM)
     av.push('El % acumulado se calcula solo sobre los <b>'+wp.n+'</b> mes(es) con datos del Sistema, no sobre los '+nM+' del período.');
   var dif=tot.filter(function(r){ return r.baseMostrada>0 && Math.abs(r.base-r.baseMostrada)>1; });
-  if(dif.length) av.push('En '+dif.length+' registro(s) el reporte del Sistema muestra una cantidad de confeccionadas distinta de la que usa para sus propios porcentajes. <b>Pendiente de revisar con Sistemas.</b>');
-  el('n1').innerHTML = av.length?av.join('<br><br>')
-    :'<b>Metodología:</b> % de segundas = segundas ÷ confeccionadas del mismo mes. Los acumulados son ponderados (suma ÷ suma), nunca promedio de porcentajes.';
+  av.push('<b>Cómo se calcula:</b> % de segundas = segundas ÷ confeccionadas del mismo mes. '+
+    'Los acumulados son ponderados (suma de segundas ÷ suma de confeccionadas), nunca promedio de porcentajes.');
+  el('n1').innerHTML = av.join('<br><br>');
 
   var anios=(ST.anio==='CMP')?ANIOS:[ST.anio], ds=[];
   anios.forEach(function(a,ai){
@@ -725,11 +727,16 @@ function secCorte(){
   mk2.sort(function(a,b){ return ratio(gm.get(b).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(b).length)
                               -ratio(gm.get(a).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(a).length); });
   mk2=mk2.slice(0,10);
+  var det2={};
+  mk2.forEach(function(k){ var sm=gm.get(k);
+    det2[k]={r:sm.filter(function(r){return r.estado==='RECHAZADO';}).length, t:sm.length}; });
   mk('c_mod',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){
-      return ratio(gm.get(k).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(k).length)*100; }),
-    backgroundColor:mk2.map(function(k){ return k.indexOf('MODULO')===0?C.sage:C.slate; }),borderRadius:3,barThickness:14}]},
-    options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
-      barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
+      return ratio(det2[k].r,det2[k].t)*100; }),
+    backgroundColor:mk2.map(function(k){ return k.indexOf('MODULO')===0?C.sage:C.slate; }),borderRadius:3,barThickness:14,
+    _det:mk2.map(function(k){ return det2[k]; })}]},
+    options:{indexAxis:'y',layout:{padding:{right:104}},plugins:{legend:{display:false},
+      barLabels:{fmt:function(v,i,ds){ var d=ds&&ds._det&&ds._det[i];
+        return v.toFixed(1)+'%'+(d?'  ('+d.r+' de '+d.t+')':''); }},
       tooltip:{callbacks:{label:function(c){ var s=gm.get(c.label);
         return s.filter(function(r){return r.estado==='RECHAZADO';}).length+' de '+s.length+' O/C'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},y:{grid:{display:false}}}},
