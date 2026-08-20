@@ -367,6 +367,7 @@ function cargarAlias(){
 }
 
 function arranque(){
+  tituloSolo();          /* primero el nombre correcto: si no, se ve el genérico unos segundos */
   ajustarEmbebido();
   cargarAlias();
   if(SNAPSHOT){
@@ -450,8 +451,10 @@ var TITSEC={s1:'SEGUNDAS PIEZAS-PRENDAS',s2:'RECHAZOS DE CORTE',
             s3:'SEGUIMIENTO DEFECTOS TEXTILES',s4:'REPORTE DIARIO TINTORERÍA'};
 function tituloSolo(){
   if(!SOLO_SEC) return;
-  var h=document.querySelector('.htitle');
-  if(h) h.textContent = TITSEC[SOLO_SEC] || h.textContent;
+  var t = TITSEC[SOLO_SEC]; if(!t) return;
+  var h = document.querySelector('.htitle');
+  if(h) h.textContent = t;
+  try{ document.title = t.charAt(0) + t.substring(1).toLowerCase() + ' · LIVES'; }catch(e){}
 }
 
 function listo(){

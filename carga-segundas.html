@@ -1213,6 +1213,8 @@ var EMBEBIDO = (function(){ try{ return window.self !== window.top; }catch(e){ r
 function modoSolo(){
   if(!SOLO_VISTA) return;
   document.body.className = 'solo' + (EMBEBIDO ? ' emb' : '');
+  var tvE = TITVISTA[SOLO_VISTA + (SOLO_TIPO ? '_'+SOLO_TIPO : '')] || '';
+  if(tvE){ try{ document.title = tvE.charAt(0)+tvE.substring(1).toLowerCase()+' · LIVES'; }catch(e){} }
   var u2 = el('usuario');
   if(EMBEBIDO){
     /* la barra no se muestra, pero el nombre se sigue necesitando */
@@ -1227,7 +1229,9 @@ function modoSolo(){
     var logo = document.querySelector('.side .logo img');
     var li = el('topbar_logo');
     if(logo && li) li.src = logo.src;
-    el('topbar_tit').textContent = TITVISTA[SOLO_VISTA + (SOLO_TIPO ? '_'+SOLO_TIPO : '')] || '';
+    var tv = TITVISTA[SOLO_VISTA + (SOLO_TIPO ? '_'+SOLO_TIPO : '')] || '';
+    el('topbar_tit').textContent = tv;
+    if(tv){ try{ document.title = tv.charAt(0)+tv.substring(1).toLowerCase()+' · LIVES'; }catch(e){} }
     /* el campo de usuario se muda a la barra: es el mismo, así nada más cambia */
     var u = el('usuario'), slot = el('topbar_slot');
     if(u && slot) slot.appendChild(u);
