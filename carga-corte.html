@@ -1210,16 +1210,58 @@ var TITVISTA = {v_aud:'AUDITORÍA DE CORTE', v_def:'DEFECTOS TEXTILES',
 /* dentro del portal de gerencia la barra sobra: ese portal ya tiene su encabezado */
 var EMBEBIDO = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
 
+/* El usuario puede venir de fuera: por la dirección (?u=Grecia Rejano) o por mensaje
+   del portal que lo incrusta. Si llega, el campo se oculta; si no llega, se sigue pidiendo
+   para que nunca quede un registro sin autor. */
+function usuarioExterno(){
+  var u = '';
+  try{
+    var q = (location.search||'').replace(/^\?/,'').split('&');
+    for(var i=0;i<q.length;i++){
+      var kv = q[i].split('=');
+      if(['u','usuario','user'].indexOf(decodeURIComponent(kv[0]||'').toLowerCase())>=0){
+        u = decodeURIComponent((kv[1]||'').replace(/\+/g,' ')).trim();
+      }
+    }
+  }catch(e){}
+  return u;
+}
+function fijarUsuario(nombre){
+  var u = T(nombre); if(!u) return false;
+  var c = el('usuario'); if(!c) return false;
+  c.value = u;
+  var box = el('whoemb'); if(box) box.style.display = 'none';
+  var slot = el('topbar_slot'); if(slot) slot.style.display = 'none';
+  var tw = document.querySelector('.topbar .tb_who');
+  if(tw) tw.innerHTML = 'Registra: <b style="color:#fff">' + esc(u) + '</b>';
+  return true;
+}
+/* el portal que lo incrusta puede mandarlo así:
+   iframe.contentWindow.postMessage({usuario:'Grecia Rejano'}, '*') */
+try{
+  window.addEventListener('message', function(ev){
+    var d = ev && ev.data;
+    if(d && typeof d === 'object' && d.usuario) fijarUsuario(d.usuario);
+  });
+}catch(e){}
+
+function ocultarUsuario(){
+  var box = el('whoemb'); if(box) box.style.display = 'none';
+  var slot = el('topbar_slot'); if(slot) slot.style.display = 'none';
+  var tw = document.querySelector('.topbar .tb_who'); if(tw) tw.style.display = 'none';
+}
+
 function modoSolo(){
   if(!SOLO_VISTA) return;
   document.body.className = 'solo' + (EMBEBIDO ? ' emb' : '');
   var tvE = TITVISTA[SOLO_VISTA + (SOLO_TIPO ? '_'+SOLO_TIPO : '')] || '';
   if(tvE){ try{ document.title = tvE.charAt(0)+tvE.substring(1).toLowerCase()+' · LIVES'; }catch(e){} }
   var u2 = el('usuario');
+  var deFuera = usuarioExterno();
   if(EMBEBIDO){
-    /* la barra no se muestra, pero el nombre se sigue necesitando */
     var slotE = el('whoemb_slot');
     if(u2 && slotE) slotE.appendChild(u2);
+    if(deFuera) fijarUsuario(deFuera); else ocultarUsuario();
     irA(SOLO_VISTA, SOLO_TIPO);
     return;
   }
@@ -1235,6 +1277,7 @@ function modoSolo(){
     /* el campo de usuario se muda a la barra: es el mismo, así nada más cambia */
     var u = el('usuario'), slot = el('topbar_slot');
     if(u && slot) slot.appendChild(u);
+    if(deFuera) fijarUsuario(deFuera); else ocultarUsuario();
   }
   irA(SOLO_VISTA, SOLO_TIPO);
 }
@@ -1276,7 +1319,10 @@ Array.prototype.forEach.call(document.querySelectorAll('.side .it'), function(b)
 });
 
 function usuario(){ return T(el('usuario').value); }
+/* El nombre ya no se pide: quien registra se sabe desde el portal.
+   El campo sigue existiendo y se puede reactivar pasando ?u=Nombre en la dirección. */
 function pideUsuario(cont){
+  if(SOLO_VISTA) return true;
   if(usuario()) return true;
   msg(cont,'err','Escribe tu nombre en el panel de la izquierda antes de guardar.');
   el('usuario').focus(); return false;
