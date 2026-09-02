@@ -75,6 +75,23 @@
   .spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(15,122,90,.25);border-top-color:var(--sage);border-radius:50%;animation:g .7s linear infinite;vertical-align:-2px;margin-right:8px;}
   @keyframes g{to{transform:rotate(360deg);}}
   .sec{display:none;} .sec.active{display:block;}
+  .modal{position:fixed;inset:0;background:rgba(14,59,54,.55);z-index:900;display:none;
+    align-items:flex-start;justify-content:center;padding:28px 18px;overflow:auto;}
+  .modal.on{display:flex;}
+  .modal .box{background:var(--warm-light);border-radius:12px;max-width:1060px;width:100%;
+    box-shadow:0 18px 50px rgba(0,0,0,.28);overflow:hidden;}
+  .modal .mh{background:var(--petrol);border-bottom:3px solid var(--emer);padding:14px 20px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .modal .mh .mt{color:#fff;font-size:17px;font-weight:700;}
+  .modal .mh .ms{color:#A8D8C7;font-size:12.5px;}
+  .modal .mh .cerrar{margin-left:auto;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);
+    color:#fff;border-radius:6px;padding:6px 14px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+  .modal .mh .cerrar:hover{background:rgba(255,255,255,.22);}
+  .modal .mb{padding:18px 20px 24px;}
+  .modal .filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
+  .modal .filtros select{font-family:inherit;font-size:13px;font-weight:700;color:var(--sage);
+    border:1.5px solid var(--sage);border-radius:6px;padding:6px 12px;background:#fff;}
+  .modal .filtros .et{font-size:12.5px;color:var(--stone);font-weight:600;}
   @media print{
     @page{size:A4 portrait;margin:11mm;}
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
@@ -258,6 +275,37 @@
     </div>
 
     <div class="foot" id="pie"></div>
+
+    <div class="modal" id="modal">
+      <div class="box">
+        <div class="mh">
+          <div><div class="mt" id="mo_tit">Detalle</div><div class="ms" id="mo_sub"></div></div>
+          <button class="cerrar" type="button" id="mo_cerrar">Cerrar</button>
+        </div>
+        <div class="mb">
+          <div class="filtros">
+            <span class="et">Tintorería:</span><select id="mo_tint"></select>
+            <span class="et">Familia:</span><select id="mo_fam"></select>
+            <button class="btn no-print" type="button" id="mo_excel">Descargar en Excel</button>
+          </div>
+          <div class="kpis" id="mo_kpis"></div>
+          <div class="grid2">
+            <div class="panel"><div class="pt">Motivos más frecuentes</div>
+              <div class="ph" id="mo_h1"></div>
+              <div class="cwrap" style="height:300px"><canvas id="mo_c1"></canvas></div></div>
+            <div class="panel"><div class="pt">Por tintorería</div>
+              <div class="ph">Partidas en este estado, por tintorería</div>
+              <div class="cwrap" style="height:300px"><canvas id="mo_c2"></canvas></div></div>
+          </div>
+          <div class="panel"><div class="pt">Tendencia mensual</div>
+            <div class="ph" id="mo_h3"></div>
+            <div class="cwrap" style="height:280px"><canvas id="mo_c3"></canvas></div></div>
+          <div class="panel"><div class="pt">Partidas</div>
+            <div class="ph" id="mo_h4"></div>
+            <div class="tscroll"><table id="mo_tabla"></table></div></div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 <script>
@@ -962,13 +1010,16 @@ function secTint(){
 
   var ge=group(partidas,function(r){return r.estado||'SIN ESTADO';});
   var ek=claves(ge,function(v){return v.length;});
-  el('h_est4').textContent='Última revisión de cada una de las '+fn(partidas.length)+' partidas';
+  el('h_est4').textContent='Última revisión de cada una de las '+fn(partidas.length)+
+    ' partidas · haz clic en una barra para ver los motivos';
   mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return ge.get(k).length/(partidas.length||1)*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
       return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:3,barThickness:18}]},
-    options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
+    options:{indexAxis:'y',layout:{padding:{right:46}},
+      onClick:function(e,els){ if(els.length) abrirDetalle(ek[els[0].index]); },
+      plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
-      tooltip:{callbacks:{label:function(c){ return fn(ge.get(c.label).length)+' partidas · '+c.parsed.x.toFixed(1)+'%'; }}}},
+      tooltip:{callbacks:{label:function(c){ return fn(ge.get(c.label).length)+' partidas · '+c.parsed.x.toFixed(1)+'% · clic para ver el detalle'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},y:{grid:{display:false}}}},
     plugins:[barLabels]});
 
@@ -1041,6 +1092,156 @@ function secTint(){
     }).join('') || '<tr><td colspan="11">Sin partidas en el período.</td></tr>');
 }
 
+/* ---------------- detalle por estado (ventana emergente) ---------------- */
+var MO = {estado:'', base:[], tint:'', fam:''};
+
+function abrirDetalle(estado){
+  var f = TIN.filter(enP).filter(function(r){ return !excl(r.tintoreria); })
+    .map(function(r){ var o={}; for(var k in r) o[k]=r[k]; o.tintoreria=ali(r.tintoreria); return o; });
+  var ult = {};
+  f.forEach(function(r){ var k=r.partida.toUpperCase();
+    if(!ult[k] || (r.fecha||'') >= (ult[k].fecha||'')) ult[k]=r; });
+  MO.estado = estado;
+  MO.base = Object.keys(ult).map(function(k){ return ult[k]; })
+    .filter(function(r){ return (r.estado||'SIN ESTADO') === estado; });
+  MO.tint=''; MO.fam='';
+
+  var ts={}, fs={};
+  MO.base.forEach(function(r){ if(r.tintoreria) ts[r.tintoreria]=1;
+    [r.familia1,r.familia2].forEach(function(x){ if(x) fs[x]=1; }); });
+  el('mo_tint').innerHTML='<option value="">Todas</option>'+
+    Object.keys(ts).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+  el('mo_fam').innerHTML='<option value="">Todas</option>'+
+    Object.keys(fs).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+
+  el('mo_tit').textContent = estado;
+  el('modal').classList.add('on');
+  pintarDetalle();
+}
+
+function motivosDe(r){
+  var out=[];
+  if(r.defecto1) out.push({fam:r.familia1, def:r.defecto1});
+  if(r.defecto2) out.push({fam:r.familia2, def:r.defecto2});
+  return out;
+}
+
+function pintarDetalle(){
+  var d = MO.base.filter(function(r){
+    if(MO.tint && r.tintoreria !== MO.tint) return false;
+    if(MO.fam && r.familia1 !== MO.fam && r.familia2 !== MO.fam) return false;
+    return true;
+  });
+  var kg = sum(d,function(r){return r.peso;});
+  var conMot = d.filter(function(r){ return motivosDe(r).length; }).length;
+
+  el('mo_sub').textContent = fn(d.length)+' partidas · '+fn(kg)+' kg · '+etiqueta();
+  el('mo_kpis').innerHTML =
+    kpi(fn(d.length),'Partidas',MO.estado,'primary')+
+    kpi(fn(kg),'Kilos','del período')+
+    kpi(fn(conMot),'Con motivo registrado', d.length?fp(ratio(conMot,d.length),0)+' del total':'')+
+    kpi(fn(d.length-conMot),'Sin motivo','pendientes de completar','meta');
+
+  /* motivos */
+  var cm={};
+  d.forEach(function(r){ motivosDe(r).forEach(function(m){ cm[m.def]=(cm[m.def]||0)+1; }); });
+  var mk2=Object.keys(cm).sort(function(a,b){ return cm[b]-cm[a]; }).slice(0,12);
+  var totM=0; Object.keys(cm).forEach(function(k){ totM+=cm[k]; });
+  el('mo_h1').textContent = totM ? fn(totM)+' motivo(s) registrado(s)'
+    : 'Todavía no hay motivos registrados en estas partidas';
+  mk('mo_c1',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){ return cm[k]; }),
+    backgroundColor:C.taupe,borderRadius:3,barThickness:14}]},
+    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
+      barLabels:{fmt:function(v){return fn(v);}},
+      tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
+      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
+    plugins:[barLabels]});
+
+  /* por tintorería */
+  var gt=group(d,function(r){return r.tintoreria;});
+  var tk=claves(gt,function(v){return v.length;}).slice(0,10);
+  mk('mo_c2',{type:'bar',data:{labels:tk.map(function(k){return k.substring(0,24);}),
+    datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),
+      backgroundColor:C.slate,borderRadius:3,barThickness:14}]},
+    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
+      barLabels:{fmt:function(v){return fn(v);}},
+      tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
+      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
+    plugins:[barLabels]});
+
+  /* tendencia: cuenta y % sobre el total revisado de cada mes */
+  var anio = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
+  var serie = MESES.map(function(m){
+    var todas = TIN.filter(function(r){ return r.anio===anio && r.mes===m && !excl(r.tintoreria); });
+    var u={}; todas.forEach(function(r){ var k=r.partida.toUpperCase();
+      if(!u[k] || (r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
+    var arr=Object.keys(u).map(function(k){ return u[k]; });
+    var enEst=arr.filter(function(r){
+      if((r.estado||'SIN ESTADO')!==MO.estado) return false;
+      if(MO.tint && ali(r.tintoreria)!==MO.tint) return false;
+      if(MO.fam && r.familia1!==MO.fam && r.familia2!==MO.fam) return false;
+      return true; });
+    return {n:enEst.length, tot:arr.length};
+  });
+  el('mo_h3').textContent = 'Año '+anio+' · partidas en estado '+MO.estado+' y su peso sobre el total revisado del mes';
+  mk('mo_c3',{data:{labels:M3,datasets:[
+    {type:'bar',label:'Partidas',data:serie.map(function(x){return x.n;}),
+     backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:2},
+    {type:'line',label:'% del total del mes',yAxisID:'y1',order:1,borderColor:C.taupe,
+     backgroundColor:C.taupe,borderWidth:2.5,tension:.3,pointRadius:3,spanGaps:true,
+     data:serie.map(function(x){ return x.tot ? x.n/x.tot*100 : null; })}]},
+    options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
+      tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+        (c.dataset.yAxisID==='y1' ? (c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%') : fn(c.parsed.y)); }}}},
+      scales:{y:{beginAtZero:true,grid:{color:C.wl}},
+        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
+        x:{grid:{display:false}}}}});
+
+  /* tabla */
+  var filas=d.slice().sort(function(a,b){ return (b.fecha||'')<(a.fecha||'')?-1:1; });
+  el('mo_h4').textContent = fn(filas.length)+' partidas';
+  el('mo_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
+    '<th>Grupo</th><th class="num">Peso kg</th><th>Familia</th><th>Motivo</th><th>Observaciones</th></tr>'+
+    (filas.map(function(r){
+      var m=motivosDe(r);
+      return '<tr><td>'+fdmy(r.fecha)+'</td><td>'+esc(r.tintoreria.substring(0,22))+'</td>'+
+        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(String(r.articulo).substring(0,26))+'</td>'+
+        '<td>'+esc(r.grupo)+'</td><td class="num">'+fn(r.peso)+'</td>'+
+        '<td>'+esc(m.map(function(x){return x.fam;}).join(' / '))+'</td>'+
+        '<td>'+esc(m.map(function(x){return x.def;}).join(' / '))+'</td>'+
+        '<td>'+esc(String(r.obs).substring(0,60))+'</td></tr>';
+    }).join('') || '<tr><td colspan="9">Sin partidas con estos filtros.</td></tr>');
+}
+
+function cerrarDetalle(){ el('modal').classList.remove('on'); }
+
+function exportarDetalle(){
+  var d = MO.base.filter(function(r){
+    if(MO.tint && r.tintoreria !== MO.tint) return false;
+    if(MO.fam && r.familia1 !== MO.fam && r.familia2 !== MO.fam) return false;
+    return true; });
+  if(!d.length) return;
+  var out = d.map(function(r){
+    var m = motivosDe(r);
+    return {'Fecha':fdmy(r.fecha),'Tintorería':r.tintoreria,'Partida':r.partida,'Artículo':r.articulo,
+      'Grupo':r.grupo,'Color':r.color,'Peso kg':N(r.peso),'Estado':r.estado,
+      'Familia 1':r.familia1||'','Motivo 1':r.defecto1||'',
+      'Familia 2':r.familia2||'','Motivo 2':r.defecto2||'',
+      'Auditores':r.auditores,'Observaciones':r.obs}; });
+  try{
+    var ws = XLSX.utils.json_to_sheet(out);
+    ws['!cols'] = Object.keys(out[0]).map(function(k){
+      var m2=k.length; out.forEach(function(o){ m2=Math.max(m2,String(o[k]==null?'':o[k]).length); });
+      return {wch:Math.min(Math.max(m2+2,10),38)}; });
+    ws['!autofilter']={ref:ws['!ref']};
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Partidas');
+    var dt=new Date(), p2=function(n){return ('0'+n).slice(-2);};
+    XLSX.writeFile(wb, 'Tintoreria_'+MO.estado.replace(/[^A-Za-zÁÉÍÓÚÑ0-9]+/g,'_')+'_'+
+      dt.getFullYear()+p2(dt.getMonth()+1)+p2(dt.getDate())+'.xlsx');
+  }catch(e){ alert('No se pudo generar el Excel: '+e.message); }
+}
+
 /* ---------------- render ---------------- */
 function render(){
   try{
@@ -1108,6 +1309,13 @@ function exportar(){
   });
 }
 el('btnExport').onclick=exportar;
+el('mo_cerrar').onclick=cerrarDetalle;
+el('modal').onclick=function(e){ if(e.target===el('modal')) cerrarDetalle(); };
+el('mo_tint').onchange=function(){ MO.tint=T(el('mo_tint').value); pintarDetalle(); };
+el('mo_fam').onchange=function(){ MO.fam=T(el('mo_fam').value); pintarDetalle(); };
+el('mo_excel').onclick=exportarDetalle;
+try{ document.addEventListener('keydown',function(e){ if(e.key==='Escape') cerrarDetalle(); }); }catch(e){}
+
 el('btnRefresh').onclick=function(){ var s=ST.sec; CARGA[s]=false; abrirSec(s); };
 el('btnPrint').onclick=function(){ window.print(); };
 arranque();
