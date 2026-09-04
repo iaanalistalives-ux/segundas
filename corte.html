@@ -127,6 +127,41 @@
   .donutwrap .dleg{font-size:11.5px;color:var(--stone);}
   .donutwrap .dleg b{font-size:20px;color:var(--rose);display:block;line-height:1.1;}
 
+  /* Tres tarjetas: mejor, peor, más exigente */
+  .icards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  @media(max-width:900px){.icards{grid-template-columns:1fr;}}
+  .icard{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px;
+    border-top:3px solid var(--sage);}
+  .icard.bad{border-top-color:var(--rose);} .icard.warn{border-top-color:var(--tan);}
+  .icard .ic-l{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--stone);}
+  .icard .ic-n{font-size:15px;font-weight:700;margin-top:4px;color:#333;}
+  .icard .ic-v{font-size:24px;font-weight:700;color:var(--sage);line-height:1.1;margin-top:2px;}
+  .icard.bad .ic-v{color:var(--rose);} .icard.warn .ic-v{color:var(--tan);}
+  .icard .ic-s{font-size:11.5px;color:var(--stone);margin-top:3px;}
+
+  /* Ranking con barra en la fila */
+  .rank{list-style:none;margin:0;padding:0;}
+  .rank li{display:grid;grid-template-columns:24px 1fr 76px;align-items:center;gap:10px;
+    padding:9px 0;border-bottom:1px solid var(--warm-light);}
+  .rank li:last-child{border-bottom:none;}
+  .rank .n{width:24px;height:24px;border-radius:50%;background:var(--warm-light);color:var(--stone);
+    font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .rank .nm{font-size:13px;font-weight:700;}
+  .rank .track{height:7px;background:var(--warm-light);border-radius:4px;margin-top:5px;overflow:hidden;}
+  .rank .fill{height:100%;border-radius:4px;width:0;transition:width .9s cubic-bezier(.2,.8,.2,1);}
+  .rank .val{text-align:right;font-size:15px;font-weight:700;}
+  .rank .sub{font-size:11px;color:var(--stone);font-weight:400;}
+
+  /* Pestañas por bloque temático */
+  .tabpane{display:none;} .tabpane.active{display:block;}
+  .btabs{display:flex;gap:4px;border-bottom:1px solid var(--warm);margin:20px 0 14px;flex-wrap:wrap;}
+  .btabs button{background:none;border:none;font-family:inherit;font-size:13.5px;font-weight:700;
+    color:var(--stone);padding:10px 16px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1px;}
+  .btabs button:hover{color:var(--sage);}
+  .btabs button.active{color:var(--sage-dark);border-bottom-color:var(--sage);}
+  @media(max-width:600px){.btabs{flex-wrap:nowrap;overflow-x:auto;gap:0;}
+    .btabs::-webkit-scrollbar{display:none;} .btabs button{flex:none;padding:12px 14px;}}
+
   .sectitle{font-size:16px;font-weight:700;color:var(--sage-dark);margin:20px 0 12px;}
   .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;
     background:#FEF3E2;color:var(--taupe);margin-left:6px;vertical-align:middle;}
@@ -204,6 +239,8 @@
     table{min-width:520px;}
     .panel:hover{box-shadow:var(--sh);}
     .modal{padding:0;} .modal .box{border-radius:0;min-height:100vh;}
+    .icards{grid-template-columns:1fr;}
+    .rank li{grid-template-columns:22px 1fr 64px;} .rank .val{font-size:14px;}
   }
 
   @media print{
@@ -213,6 +250,8 @@
     body{background:#fff!important;}
     .wrap{max-width:none;padding:0;}
     .sec{display:block!important;}
+    .tabpane{display:block!important;}
+    .btabs{display:none!important;}
     .panel,.kpi,.insight,.verdict,.kpanel,.note{box-shadow:none;border:1px solid var(--warm);break-inside:avoid;}
     .cwrap,.cwrap.tall{height:170px!important;}
     table{min-width:0;}
@@ -261,12 +300,19 @@
       <div id="i_s1"></div>
       <div class="note" id="n1"></div>
       <div class="kpis" id="k1"></div>
+      <div id="ic1"></div>
+      <div class="btabs" id="s1_tabs"></div>
+      <div id="s1_panes">
+      <div class="tabpane active">
       <div class="panel">
         <div class="pt">Tendencia mensual de segundas: piezas vs prendas</div>
         <div class="ph" id="t1h">% sobre lo producido en cada mes · línea de meta</div>
         <div class="cwrap tall"><canvas id="c_tend1"></canvas></div>
         <div class="foot" id="f1"></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="sectitle">Defectos más recurrentes</div>
       <div class="grid2">
         <div class="panel"><div class="pt">Top 10 defectos · piezas segundas</div>
@@ -276,6 +322,9 @@
           <div class="ph" id="h_dpr"></div>
           <div class="cwrap"><canvas id="c_defpr"></canvas></div></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="sectitle">Clientes y áreas generadoras</div>
       <div class="panel"><div class="pt">Clientes con más segundas · piezas y prendas en un solo cuadro</div>
         <div class="ph">Participación de cada cliente dentro de piezas y dentro de prendas</div>
@@ -283,23 +332,36 @@
       <div class="panel"><div class="pt">Comparativo de Segundas por Área Generadora (piezas vs prendas)</div>
         <div class="ph" id="h_area"></div>
         <div class="cwrap tall"><canvas id="c_area"></canvas></div></div>
+      </div>
+
+      <div class="tabpane">
       <div class="panel"><div class="pt">Resumen mensual</div>
         <div class="ph">Origen SISTEMA es dato del export; MANUAL viene del cuadro anterior</div>
         <div class="tscroll"><table id="t_meses"></table></div></div>
     </div>
+      </div>
+      </div>
+    
 
-    <!-- ===================== CORTE ===================== -->
-    <div class="sec" id="s2">
+    <!-- ===================== CORTE ===================== --><div class="sec" id="s2">
       <div id="v_s2"></div>
       <div id="i_s2"></div>
       <div class="note" id="n2"></div>
       <div class="kpis" id="k2"></div>
+      <div id="ic2"></div>
       <div class="kdual" id="kd2"></div>
+
+      <div class="btabs" id="s2_tabs"></div>
+      <div id="s2_panes">
+      <div class="tabpane active">
       <div class="panel">
         <div class="pt">Evolución mensual de los Rechazos de Corte</div>
         <div class="ph" id="t2h"></div>
         <div class="cwrap tall"><canvas id="c_tend2"></canvas></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="grid2">
         <div class="panel"><div class="pt">Origen del defecto</div>
           <div class="ph" id="h_org">Sobre las inspecciones de Corte del período</div>
@@ -308,6 +370,12 @@
           <div class="ph">O/C rechazadas ÷ N° O/C auditadas de cada uno. Al unificar dos talleres el porcentaje no se suma: se juntan sus O/Corte y se vuelve a dividir, por eso el resultado queda entre ambos.</div>
           <div class="cwrap"><canvas id="c_mod"></canvas></div></div>
       </div>
+      <div class="panel"><div class="pt">Ranking de módulos y talleres</div>
+        <div class="ph">Ordenados por % de rechazo. La barra es proporcional al peor del período.</div>
+        <div id="rk2"></div></div>
+      </div>
+
+      <div class="tabpane">
       <div class="sectitle">Frente a lo producido</div>
       <div class="panel">
         <div class="pt">Rechazos por Grupo vs producción del mismo período</div>
@@ -320,15 +388,20 @@
         <div class="ph" id="h_tela">Con el nombre de la tela, no solo el código</div>
         <div class="cwrap tall"><canvas id="c_tela"></canvas></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="panel">
         <div class="pt">O/C rechazadas y su estado actual</div>
         <div class="ph" id="h_trech"></div>
         <div class="tscroll"><table id="t_rech"></table></div>
       </div>
     </div>
+      </div>
+      </div>
+    
 
-    <!-- ===================== DEFECTOS TEXTILES ===================== -->
-    <div class="sec" id="s3">
+    <!-- ===================== DEFECTOS TEXTILES ===================== --><div class="sec" id="s3">
       <div id="v_s3"></div>
       <div id="i_s3"></div>
       <div class="note">
@@ -337,17 +410,27 @@
         la suma cierra exactamente en 100%. El % de rechazo es ponderado: total de defectos ÷ total de prendas inspeccionadas.
       </div>
       <div class="kpis" id="k3"></div>
+      <div id="ic3"></div>
+      <div class="btabs" id="s3_tabs"></div>
+      <div id="s3_panes">
+      <div class="tabpane active">
       <div class="panel">
         <div class="pt">Gráfico de Recurrencia Defectos Textiles Depurados</div>
         <div class="ph">Haz clic en una barra para ver en qué telas, grupos y O/Corte aparece</div>
         <div class="cwrap tall"><canvas id="c_pareto"></canvas></div>
         <div class="foot" id="f_pareto"></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="panel">
         <div class="pt" id="tz_t">Trazabilidad del defecto</div>
         <div class="ph" id="tz_h">Selecciona una barra del gráfico anterior</div>
         <div class="tscroll"><table id="t_traza"></table></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="grid2">
         <div class="panel"><div class="pt">Clasificación de Defectos por Cliente</div>
           <div class="ph">Participación de cada cliente en el total de defectos</div>
@@ -356,15 +439,20 @@
           <div class="ph">Código y nombre de la tela</div>
           <div class="cwrap"><canvas id="c_t3"></canvas></div></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="panel">
         <div class="pt">Evolución mensual</div>
         <div class="ph">Planillas inspeccionadas y % de rechazo del mes</div>
         <div class="cwrap"><canvas id="c_tend3"></canvas></div>
       </div>
     </div>
+      </div>
+      </div>
+    
 
-    <!-- ===================== TINTORERÍA ===================== -->
-    <div class="sec" id="s4">
+    <!-- ===================== TINTORERÍA ===================== --><div class="sec" id="s4">
       <div id="v_s4"></div>
       <div id="i_s4"></div>
       <div class="note">
@@ -373,6 +461,10 @@
         dos veces la misma partida.
       </div>
       <div class="kpis" id="k4"></div>
+      <div id="ic4"></div>
+      <div class="btabs" id="s4_tabs"></div>
+      <div id="s4_panes">
+      <div class="tabpane active">
       <div class="grid2">
         <div class="panel"><div class="pt">Estado actual de las partidas</div>
           <div class="ph" id="h_est4"></div>
@@ -381,16 +473,28 @@
           <div class="ph" id="h_kg4">Peso total revisado en el período</div>
           <div class="cwrap"><canvas id="c_kg4"></canvas></div></div>
       </div>
+      </div>
+
+      <div class="tabpane">
+      <div class="panel"><div class="pt">Ranking de tintorerías</div>
+        <div class="ph">Ordenadas por % de partidas rechazadas. La barra es proporcional a la peor del período.</div>
+        <div id="rk4"></div></div>
       <div class="panel">
         <div class="pt">Desempeño por tintorería</div>
         <div class="ph">Partidas revisadas y % de Partidas Rechazadas</div>
         <div class="cwrap tall"><canvas id="c_tint4"></canvas></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="panel">
         <div class="pt">Evolución mensual</div>
         <div class="ph">Partidas revisadas y % de Partidas Rechazadas</div>
         <div class="cwrap"><canvas id="c_tend4"></canvas></div>
       </div>
+      </div>
+
+      <div class="tabpane">
       <div class="panel">
         <div class="pt">Partidas revisadas</div>
         <div class="ph" id="h_t4">Estado actual de cada partida del período</div>
@@ -398,7 +502,8 @@
         <div class="foot">Este cuadro reemplaza a la hoja "PARTIDAS REVISADAS" que se armaba a mano: filtra por año y mes arriba, e imprime.</div>
       </div>
     </div>
-
+      </div>
+      </div>
     <details class="help" id="ayuda">
       <summary>¿Cómo leo este tablero?</summary>
       <div id="ayuda_txt"></div>
@@ -444,13 +549,31 @@
    ============================================================ */
 var API = 'https://script.google.com/macros/s/AKfycbzZpAse_qhFJGCjlpWpBHNDiMdCcM9GfqQO1LcP16Kx4z6R1FMzbfqV6YDI9jYuM60v/exec';
 var META_PZ = 0.025;
+/* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
+var META_CORTE = null, META_DEF = null, META_TINT = null;
 
 Chart.defaults.font.family="Calibri, Arial, sans-serif";
 Chart.defaults.font.size=12;
 Chart.defaults.color="#5F726C";
 Chart.defaults.borderColor="#F1F6F4";
-Chart.defaults.plugins.tooltip.backgroundColor="rgba(51,51,51,0.95)";
+Chart.defaults.plugins.tooltip.backgroundColor='rgba(14,59,54,.95)';
 Chart.defaults.plugins.tooltip.padding=10;
+Chart.defaults.plugins.tooltip.cornerRadius=6;
+/* la leyenda siempre abajo: a la derecha le roba ancho al gráfico */
+(function(){
+  var p = Chart.defaults.plugins;
+  if(!p.legend) p.legend = {};
+  if(!p.legend.labels) p.legend.labels = {};
+  p.legend.position = 'bottom';
+  p.legend.labels.usePointStyle = true;
+  p.legend.labels.boxWidth = 12;
+  try{
+    if(window.matchMedia && window.matchMedia('(max-width:600px)').matches){
+      Chart.defaults.font.size = 11;
+      p.legend.labels.boxWidth = 10;
+    }
+  }catch(e){}
+})();
 Chart.defaults.maintainAspectRatio=false;
 
 var C={sage:'#0F7A5A',rose:'#DC2626',tan:'#F59E0B',slate:'#4E6B78',emer:'#10B981',
@@ -482,13 +605,23 @@ function mk(id,cfg){ var e=el(id); if(!e) return; if(CH[id]) CH[id].destroy(); C
 function fdmy(s){ return T(s) ? T(s).split('-').reverse().join('/') : ''; }
 /* KPI v2: etiqueta arriba, valor y delta en la misma fila, subtítulo abajo.
    El delta solo aparece si hay período anterior; si no, se omite. */
+/* pct(0.0484) -> KPI animado que termina en 4.84% · num(1590) -> 1,590 */
+function pct(v,dec){ return v==null||!isFinite(v) ? '—' : {n:v*100, dec:(dec==null?2:dec), suf:'%'}; }
+function num(v){ return {n:v, dec:0, suf:''}; }
+
 function kpi(v,l,sub,cls,delta){
   var d = '';
   if(delta && delta.txt){
     d = '<span class="d '+delta.cls+'">'+delta.txt+'</span>';
   }
+  /* si el valor es numérico se anima; si no, se escribe tal cual */
+  var num = (typeof v === 'object' && v !== null) ? v : null;
+  var val = num
+    ? '<span class="v" data-count="'+num.n+'" data-dec="'+(num.dec||0)+'" data-suf="'+(num.suf||'')+'">'+
+      (num.suf==='%'?'0%':'0')+'</span>' + (num.extra||'')
+    : '<span class="v">'+v+'</span>';
   return '<div class="kpi '+(cls||'')+'"><div class="l">'+l+'</div>'+
-    '<div class="row"><span class="v">'+v+'</span>'+d+'</div>'+
+    '<div class="row">'+val+d+'</div>'+
     (sub?'<div class="s">'+sub+'</div>':'')+'</div>';
 }
 /* subir es malo en segundas y rechazos: la flecha arriba va en rojo */
@@ -500,6 +633,36 @@ function delta(actual, previo, subirEsMalo){
   var malo = subirEsMalo ? sube : !sube;
   return {txt:(sube?'▲ ':'▼ ')+fp(Math.abs(dif),2), cls: malo?'up':'down'};
 }
+
+/* En las tendencias el valor va escrito sobre cada punto: es el estándar LIVES,
+   así se lee sin pasar el mouse ni contar cuadrículas. */
+var pointLabels={id:'pointLabels',afterDatasetsDraw:function(ch,a,opts){
+  var fmt=(opts&&opts.fmt)||function(v){ return v.toFixed(1)+'%'; };
+  var soloTipo=(opts&&opts.soloTipo)||'line';
+  ch.data.datasets.forEach(function(ds,di){
+    if((ds.type||ch.config.type)!==soloTipo) return;
+    if(ds.borderDash && ds.pointRadius===0) return;      /* la línea de meta no se etiqueta */
+    var meta=ch.getDatasetMeta(di); if(meta.hidden) return;
+    var ctx=ch.ctx;
+    meta.data.forEach(function(pt,i){
+      var v=ds.data[i]; if(v==null) return;
+      ctx.save();
+      ctx.font='700 10.5px Calibri, Arial, sans-serif';
+      ctx.fillStyle=ds.borderColor||'#5F726C';
+      ctx.textAlign='center'; ctx.textBaseline='bottom';
+      var txt=fmt(v,i,ds);
+      var w=ctx.measureText(txt).width;
+      var x=Math.min(Math.max(pt.x, ch.chartArea.left+w/2+2), ch.chartArea.right-w/2-2);
+      var y=pt.y-6;
+      if(y < ch.chartArea.top+11) y = pt.y+17;           /* si no cabe arriba, va debajo */
+      ctx.fillStyle='rgba(255,255,255,.88)';
+      ctx.fillRect(x-w/2-3, y-11, w+6, 13);
+      ctx.fillStyle=ds.borderColor||'#5F726C';
+      ctx.fillText(txt, x, y);
+      ctx.restore();
+    });
+  });
+}};
 
 var barLabels={id:'barLabels',afterDatasetsDraw:function(ch,a,opts){
   var fmt=(opts&&opts.fmt)||function(v){return fp(v,1);};
@@ -617,6 +780,12 @@ function guardarSec(sec,res){
   TIN=res.filas||[];
 }
 
+var BLOQUES = {
+  s1:['Tendencia','Defectos','Clientes y áreas','Resumen mensual'],
+  s2:['Tendencia','Responsables','Frente a lo producido','Detalle'],
+  s3:['Recurrencia','Trazabilidad','Clientes y telas','Evolución'],
+  s4:['Estado','Tintorerías','Evolución','Detalle']
+};
 function abrirSec(sec, primera){
   Array.prototype.forEach.call(document.querySelectorAll('.tabs .tb'),function(x){
     x.classList.remove('active'); if(x.getAttribute('data-sec')===sec) x.classList.add('active'); });
@@ -627,6 +796,7 @@ function abrirSec(sec, primera){
     if(primera){ el('dash').style.display='block'; }
     listo();
     render();
+    if(BLOQUES[sec]) armarBloques(sec, BLOQUES[sec]);
   });
 }
 
@@ -745,11 +915,11 @@ function secSegundas(){
     dPr = delta(pctPr, pctMes(aPrev,mPrev,'PRENDA'), true);
   }
   el('k1').innerHTML =
-    kpi(fp(pctPz)+bd,'% de piezas segundas',sub,'primary',dPz)+
-    kpi(fp(pctPr),'% de prendas segundas',wr.pct!=null?fn(wr.seg)+' sobre '+fn(wr.base)+' confeccionadas':sub,'pr',dPr)+
-    kpi(fn(sum(pz,function(r){return r.segundas;})),'Piezas segundas',etiqueta())+
-    kpi(fn(sum(pr,function(r){return r.segundas;})),'Prendas segundas',etiqueta())+
-    kpi(fp(META_PZ),'Meta','piezas y prendas','meta');
+    kpi(pctPz==null?'—':{n:pctPz*100,dec:2,suf:'%',extra:bd},'% de piezas segundas',sub,'primary',dPz)+
+    kpi(pct(pctPr),'% de prendas segundas',wr.pct!=null?fn(wr.seg)+' sobre '+fn(wr.base)+' confeccionadas':sub,'pr',dPr)+
+    kpi(num(sum(pz,function(r){return r.segundas;})),'Piezas segundas',etiqueta())+
+    kpi(num(sum(pr,function(r){return r.segundas;})),'Prendas segundas',etiqueta())+
+    kpi(pct(META_PZ),'Meta','piezas y prendas','meta');
 
   var av=[];
   av.push('<b>Declarado y calculado — la diferencia:</b> <span class="badge ok">calculado</span> es el '+
@@ -782,14 +952,14 @@ function secSegundas(){
         var f=SEG.tot.filter(function(r){ return r.anio===a&&r.mes===m&&r.tipo===t[0]; });
         return f.length?f[0].origen==='MANUAL':false; });
       ds.push({label:t[1]+(anios.length>1?' '+a:''),data:serie,borderColor:t[2],backgroundColor:t[2],
-        borderWidth:2.5,tension:.3,spanGaps:true,
+        borderWidth:2.5,tension:.3,spanGaps:true,pointBorderColor:'#fff',pointBorderWidth:1.5,
         pointRadius:serie.map(function(v,i){ return v==null?0:(man[i]?5:3.5); }),
         pointStyle:serie.map(function(v,i){ return man[i]?'triangle':'circle'; }),
         segment:{borderDash:function(c){ return man[c.p0DataIndex]||man[c.p1DataIndex]?[6,4]:undefined; }}});
     });
   });
   ds.push({label:'Meta',data:MESES.map(function(){return META_PZ*100;}),borderColor:C.tan,
-    borderWidth:2,borderDash:[6,4],pointRadius:0,tension:0});
+    borderWidth:2,borderDash:[6,5],pointRadius:0,tension:0});
   mk('c_tend1',{type:'line',data:{labels:M3,datasets:ds},options:{
     plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'); }}}},
@@ -802,7 +972,7 @@ function secSegundas(){
     var t=sum(arr,function(r){return r.cant;})||1;
     el(hid).textContent=arr.length?fn(t)+' unidades · '+etiqueta():'Sin detalle de '+que+' en el período';
     mk(cv,{type:'bar',data:{labels:k,datasets:[{data:k.map(function(x){ return sum(g.get(x),function(r){return r.cant;})/t*100; }),
-      backgroundColor:color,borderRadius:3,barThickness:15}]},
+      backgroundColor:color,borderRadius:4,barThickness:16}]},
       options:{indexAxis:'y',layout:{padding:{right:50}},plugins:{legend:{display:false},
         barLabels:{fmt:function(v){return v.toFixed(2)+'%';}},
         tooltip:{callbacks:{label:function(c){ return fn(sum(g.get(c.label),function(r){return r.cant;}))+' und · '+c.parsed.x.toFixed(2)+'%'; }}}},
@@ -819,8 +989,8 @@ function secSegundas(){
   ck.sort(function(a,b){ return (sum(gp.get(b)||[],function(r){return r.cant;})+sum(gr.get(b)||[],function(r){return r.cant;}))
                               -(sum(gp.get(a)||[],function(r){return r.cant;})+sum(gr.get(a)||[],function(r){return r.cant;})); });
   mk('c_cli',{type:'bar',data:{labels:ck,datasets:[
-    {label:'% de piezas segundas',data:ck.map(function(k){ return sum(gp.get(k)||[],function(r){return r.cant;})/tp*100; }),backgroundColor:C.taupe,borderRadius:3},
-    {label:'% de prendas segundas',data:ck.map(function(k){ return sum(gr.get(k)||[],function(r){return r.cant;})/tr*100; }),backgroundColor:C.slate,borderRadius:3}]},
+    {label:'% de piezas segundas',data:ck.map(function(k){ return sum(gp.get(k)||[],function(r){return r.cant;})/tp*100; }),backgroundColor:C.taupe,borderRadius:4},
+    {label:'% de prendas segundas',data:ck.map(function(k){ return sum(gr.get(k)||[],function(r){return r.cant;})/tr*100; }),backgroundColor:C.slate,borderRadius:4}]},
     options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ var g=c.datasetIndex===0?gp:gr;
         return c.dataset.label+': '+fn(sum(g.get(c.label)||[],function(r){return r.cant;}))+' und · '+c.parsed.y.toFixed(2)+'%'; }}}},
@@ -832,9 +1002,9 @@ function secSegundas(){
   var usa=(wp.base>0&&wr.base>0);
   mk('c_area',{type:'bar',data:{labels:ak,datasets:[
     {label:usa?'% pieza sobre producción':'% pieza (participación)',
-     data:ak.map(function(k){ return sum(ap.get(k)||[],function(r){return r.cant;})/(usa?wp.base:tp)*100; }),backgroundColor:C.emer,borderRadius:3},
+     data:ak.map(function(k){ return sum(ap.get(k)||[],function(r){return r.cant;})/(usa?wp.base:tp)*100; }),backgroundColor:C.emer,borderRadius:4},
     {label:usa?'% prenda sobre producción':'% prenda (participación)',
-     data:ak.map(function(k){ return sum(ar.get(k)||[],function(r){return r.cant;})/(usa?wr.base:tr)*100; }),backgroundColor:C.rose,borderRadius:3}]},
+     data:ak.map(function(k){ return sum(ar.get(k)||[],function(r){return r.cant;})/(usa?wr.base:tr)*100; }),backgroundColor:C.rose,borderRadius:4}]},
     options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+c.parsed.y.toFixed(2)+'%'; }}}},
       scales:{y:{beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},x:{grid:{display:false}}}}});
@@ -861,6 +1031,29 @@ function secSegundas(){
       (wp.base>0 ? ' Si esos motivos bajaran a la mitad, el indicador cerraría cerca de <b>'+
         fp((wp.seg - accP[cc.top[0]]/2)/wp.base)+'</b>.' : '')
     : '');
+
+  /* tres tarjetas: mejor y peor mes, y el área que más aporta */
+  var porMes = MESES.map(function(m){
+    var f2=SEG.tot.filter(function(r){ return r.anio===(ST.anio==='CMP'?ANIOS[ANIOS.length-1]:ST.anio)
+      && r.mes===m && r.tipo==='PIEZA'; });
+    if(!f2.length) return null;
+    var b2=sum(f2,function(r){return r.base;});
+    var v2 = b2>0 ? sum(f2,function(r){return r.segundas;})/b2 : (f2[0].pct>0?f2[0].pct:null);
+    return v2==null?null:{mes:m, v:v2};
+  }).filter(Boolean);
+  if(porMes.length>=2){
+    var ord=porMes.slice().sort(function(a,b){ return a.v-b.v; });
+    var areaTop=Object.keys(accP).length
+      ? Object.keys(accP).sort(function(a,b){ return accP[b]-accP[a]; })[0] : '';
+    icards('ic1',
+      {etq:'Mejor mes', nombre:ord[0].mes, valorTxt:fp(ord[0].v), valor:ord[0].v*100, meta:META_PZ*100,
+       sub:'el más bajo del año'},
+      {etq:'Peor mes', nombre:ord[ord.length-1].mes, valorTxt:fp(ord[ord.length-1].v),
+       valor:ord[ord.length-1].v*100, sub:'el más alto del año'},
+      areaTop?{etq:'Motivo dominante', nombre:areaTop, valorTxt:fn(accP[areaTop]),
+       sub:'piezas segundas en el período', forzar:''}:null,
+      META_PZ*100);
+  } else { var c1=el('ic1'); if(c1) c1.innerHTML=''; }
 
   var fl=SEG.tot.slice().sort(function(a,b){ return (a.anio-b.anio)||(a.mesNum-b.mesNum)||(a.tipo<b.tipo?-1:1); });
   el('t_meses').innerHTML='<tr><th>Año</th><th>Mes</th><th>Tipo</th><th>Origen</th><th class="num">Segundas</th>'+
@@ -892,11 +1085,11 @@ function secCorte(){
   var prIns=sum(ins,function(r){return r.prendas;});
 
   el('k2').innerHTML=
-    kpi(fp(ratio(rech.length,ocs.length)),'% Rech sobre N° O/C',rech.length+' de '+fn(ocs.length)+' auditadas','primary')+
-    kpi(fn(ocs.length),'N° O/C auditadas',etiqueta())+
-    kpi(fp(ratio(prRech,prendas)),'% Rech sobre N° Prendas',fn(prRech)+' de '+fn(prendas))+
-    kpi(cort>0?fn(cort):'—','Prendas cortadas',cort>0?'liquidación del Sistema':'sin liquidación del período')+
-    kpi(cort>0?fp(ratio(prIns,cort)):'—','% inspeccionado sobre lo producido',cort>0?fn(prIns)+' prendas inspeccionadas':'');
+    kpi(pct(ratio(rech.length,ocs.length)),'% Rech sobre N° O/C',rech.length+' de '+fn(ocs.length)+' auditadas','primary')+
+    kpi(num(ocs.length),'N° O/C auditadas',etiqueta())+
+    kpi(pct(ratio(prRech,prendas)),'% Rech sobre N° Prendas',fn(prRech)+' de '+fn(prendas))+
+    kpi(cort>0?num(cort):'—','Prendas cortadas',cort>0?'liquidación del Sistema':'sin liquidación del período')+
+    kpi(cort>0?pct(ratio(prIns,cort)):'—','% inspeccionado sobre lo producido',cort>0?fn(prIns)+' prendas inspeccionadas':'');
 
   el('n2').innerHTML='<b>Cómo se cuenta:</b> cada O/Corte se cuenta una sola vez, con su auditoría más reciente, '+
     'aunque tenga varios seguimientos. El % sobre producción usa las prendas cortadas de la liquidación del Sistema. '+
@@ -920,7 +1113,7 @@ function secCorte(){
     var sr=s.filter(function(r){return r.estado==='RECHAZADO';}).length;
     mk('dn_'+g,{type:'doughnut',data:{labels:['Rechazadas','Aprobadas'],
       datasets:[{data:[sr,Math.max(s.length-sr,0)],backgroundColor:[C.rose,g==='LIVES'?C.sage:C.slate],borderWidth:0}]},
-      options:{cutout:'68%',plugins:{legend:{display:false},
+      options:{cutout:'74%',plugins:{legend:{display:false},
         tooltip:{callbacks:{label:function(c){ return c.label+': '+fn(c.parsed); }}}}}});
   });
 
@@ -967,7 +1160,7 @@ function secCorte(){
   var gk=claves(go,function(v){return v.length;});
   var tOr=ins.length||1;
   mk('c_origen',{type:'bar',data:{labels:gk,datasets:[{data:gk.map(function(k){ return go.get(k).length/tOr*100; }),
-    backgroundColor:gk.map(function(k){ return k==='TEXTIL'?C.taupe:(k==='CORTE'?C.slate:C.warm); }),borderRadius:3,barThickness:18}]},
+    backgroundColor:gk.map(function(k){ return k==='TEXTIL'?C.taupe:(k==='CORTE'?C.slate:C.warm); }),borderRadius:4,barThickness:18}]},
     options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
       tooltip:{callbacks:{label:function(c){ return fn(go.get(c.label).length)+' inspecciones · '+c.parsed.x.toFixed(1)+'%'; }}}},
@@ -986,7 +1179,7 @@ function secCorte(){
     det2[k]={r:sm.filter(function(r){return r.estado==='RECHAZADO';}).length, t:sm.length}; });
   mk('c_mod',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){
       return ratio(det2[k].r,det2[k].t)*100; }),
-    backgroundColor:mk2.map(function(k){ return k.indexOf('MODULO')===0?C.sage:C.slate; }),borderRadius:3,barThickness:14,
+    backgroundColor:mk2.map(function(k){ return k.indexOf('MODULO')===0?C.sage:C.slate; }),borderRadius:4,barThickness:16,
     _det:mk2.map(function(k){ return det2[k]; })}]},
     options:{indexAxis:'y',layout:{padding:{right:104}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v,i,ds){ var d=ds&&ds._det&&ds._det[i];
@@ -1025,7 +1218,7 @@ function secCorte(){
   var tk=todasT.slice(0,10);
   var cubre=sum(tk,function(k){ return gt.get(k).length; });
   mk('c_tela',{type:'bar',data:{labels:tk.map(function(k){ var d=TELA[k]; return d?[k,d.substring(0,30)]:k; }),
-    datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),backgroundColor:C.slate,borderRadius:3,barThickness:15}]},
+    datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return fn(v);}},
       tooltip:{callbacks:{title:function(c){ var k=tk[c[0].dataIndex]; return k+(TELA[k]?' · '+TELA[k]:''); },
@@ -1049,6 +1242,28 @@ function secCorte(){
         fp(cm2.pct,0)+' de los rechazos: '+esc(cm2.top.join(', '))+'.' : '')+
       ' <b>No hay meta declarada</b> para este indicador, así que no se pinta semáforo.'
     : '');
+
+  /* ranking e icards de módulos y talleres */
+  var filasRk = Array.from(gm.keys()).filter(function(k){ return gm.get(k).length>=3; })
+    .map(function(k){ var g2=gm.get(k), r2=g2.filter(function(x){return x.estado==='RECHAZADO';}).length;
+      return {nombre:k, valor:ratio(r2,g2.length)*100, sub:r2+' de '+g2.length+' O/C · '+
+        fn(sum(g2,function(x){return x.prendas;}))+' prendas'}; })
+    .sort(function(a,b){ return b.valor-a.valor; });
+  ranking('rk2', filasRk, META_CORTE, function(v){ return v.toFixed(1)+'%'; });
+
+  if(filasRk.length>=2){
+    var peorM = filasRk[0], mejorM = filasRk[filasRk.length-1];
+    var masVol = Array.from(gm.keys()).map(function(k){
+      return {nombre:k, n:gm.get(k).length}; }).sort(function(a,b){ return b.n-a.n; })[0];
+    icards('ic2',
+      {etq:'Menor rechazo', nombre:mejorM.nombre, valorTxt:mejorM.valor.toFixed(1)+'%',
+       sub:mejorM.sub, valor:mejorM.valor},
+      {etq:'Mayor rechazo', nombre:peorM.nombre, valorTxt:peorM.valor.toFixed(1)+'%',
+       sub:peorM.sub, valor:peorM.valor, forzar: META_CORTE?undefined:'bad'},
+      {etq:'Más O/Corte auditadas', nombre:masVol.nombre, valorTxt:fn(masVol.n),
+       sub:'O/Corte revisadas en el período', forzar:''},
+      META_CORTE);
+  } else { var c2=el('ic2'); if(c2) c2.innerHTML=''; }
 
   var todos=ultimoPorOC(aud);
   var filas=rech.map(function(r){ return {a:r, ult:todos[r.oc.toUpperCase()]||r}; })
@@ -1081,16 +1296,16 @@ function secDefectos(){
     top=top.concat(['RESTO DE TIPOS ('+restoN+')']); acum['RESTO DE TIPOS ('+restoN+')']=restoV; }
 
   el('k3').innerHTML=
-    kpi(fn(cab.length),'Planillas inspeccionadas al 100%',etiqueta(),'primary')+
-    kpi(fn(totDef),'Defectos textiles contados',ks.length+' tipos distintos')+
-    kpi(fp(ratio(totDef,prendas)),'% de rechazo',fn(totDef)+' defectos ÷ '+fn(prendas)+' prendas')+
+    kpi(num(cab.length),'Planillas inspeccionadas al 100%',etiqueta(),'primary')+
+    kpi(num(totDef),'Defectos textiles contados',ks.length+' tipos distintos')+
+    kpi(pct(ratio(totDef,prendas)),'% de rechazo',fn(totDef)+' defectos ÷ '+fn(prendas)+' prendas')+
     kpi(ks.length?ks[0]:'—','Defecto más recurrente',totDef>0?fp(acum[ks[0]]/totDef,1)+' del total':'');
 
   var acc=0, accA=[];
   top.forEach(function(k){ acc+=acum[k]/(totDef||1)*100; accA.push(acc); });
   mk('c_pareto',{data:{labels:top,datasets:[
     {type:'bar',label:'% del total de defectos',data:top.map(function(k){ return acum[k]/(totDef||1)*100; }),
-     backgroundColor:C.taupe,borderRadius:3,barThickness:15,yAxisID:'y'},
+     backgroundColor:C.taupe,borderRadius:4,barThickness:16,yAxisID:'y'},
     {type:'line',label:'Frecuencia acumulada',data:accA,borderColor:C.slate,backgroundColor:C.slate,
      borderWidth:2,tension:.25,pointRadius:2.5,yAxisID:'y1'}]},
     options:{indexAxis:'y',layout:{padding:{right:52}},
@@ -1117,11 +1332,25 @@ function secDefectos(){
       ' defectos sobre '+fn(prendas)+' prendas inspeccionadas).'
     : '');
 
+  if(ks.length>=2 && totDef>0){
+    var gCli=group(cab,function(r){return r.cliente||r.grupo;});
+    var cliTop=claves(gCli,function(v){ return sum(v,function(r){return r.total;}); })[0];
+    icards('ic3',
+      {etq:'Defecto más recurrente', nombre:ks[0], valorTxt:fp(acum[ks[0]]/totDef,1),
+       sub:fn(acum[ks[0]])+' incidencias', forzar:'bad'},
+      {etq:'Segundo más recurrente', nombre:ks[1], valorTxt:fp(acum[ks[1]]/totDef,1),
+       sub:fn(acum[ks[1]])+' incidencias', forzar:'warn'},
+      cliTop?{etq:'Cliente más afectado', nombre:cliTop,
+       valorTxt:fn(sum(gCli.get(cliTop),function(r){return r.total;})),
+       sub:'defectos en '+gCli.get(cliTop).length+' planillas', forzar:''}:null,
+      META_DEF);
+  } else { var c3=el('ic3'); if(c3) c3.innerHTML=''; }
+
   var gg=group(cab,function(r){return r.cliente||r.grupo;});
   var gk3=claves(gg,function(v){ return sum(v,function(r){return r.total;}); }).slice(0,10);
   mk('c_g3',{type:'bar',data:{labels:gk3,datasets:[{data:gk3.map(function(k){
       return sum(gg.get(k),function(r){return r.total;})/(totDef||1)*100; }),
-    backgroundColor:C.rose,borderRadius:3,barThickness:15}]},
+    backgroundColor:C.rose,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
       tooltip:{callbacks:{label:function(c){ var s=gg.get(c.label);
@@ -1135,7 +1364,7 @@ function secDefectos(){
   var tk3=claves(gt3,function(v){ return sum(v,function(r){return r.total;}); }).slice(0,10);
   mk('c_t3',{type:'bar',data:{labels:tk3.map(function(k){ var d=TELA2[k]; return d?[k,d.substring(0,28)]:k; }),
     datasets:[{data:tk3.map(function(k){ return sum(gt3.get(k),function(r){return r.total;})/(totDef||1)*100; }),
-      backgroundColor:C.slate,borderRadius:3,barThickness:14}]},
+      backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
       tooltip:{callbacks:{title:function(c){ var k=tk3[c[0].dataIndex]; return k+(TELA2[k]?' · '+TELA2[k]:''); },
@@ -1208,11 +1437,11 @@ function secTint(){
   var rec=partidas.filter(function(r){ return /RECHAZ/.test(r.estado); }).length;
 
   el('k4').innerHTML=
-    kpi(fn(partidas.length),'Partidas revisadas',fn(f.length)+' revisiones en total','primary')+
-    kpi(fn(kg),'Kilos auditados',etiqueta())+
-    kpi(fp(ratio(apro,partidas.length)),'% aprobadas',fn(apro)+' partidas')+
-    kpi(fp(ratio(obs,partidas.length)),'% observadas',fn(obs)+' partidas','meta')+
-    kpi(fp(ratio(rec,partidas.length)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
+    kpi(num(partidas.length),'Partidas revisadas',fn(f.length)+' revisiones en total','primary')+
+    kpi(num(kg),'Kilos auditados',etiqueta())+
+    kpi(pct(ratio(apro,partidas.length)),'% aprobadas',fn(apro)+' partidas')+
+    kpi(pct(ratio(obs,partidas.length)),'% observadas',fn(obs)+' partidas','meta')+
+    kpi(pct(ratio(rec,partidas.length)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
 
   sinVerdict('v_s4');
   var accT={}; partidas.forEach(function(r){ if(/RECHAZ/.test(r.estado) && r.tintoreria)
@@ -1232,7 +1461,7 @@ function secTint(){
     ' partidas · haz clic en una barra para ver los motivos';
   mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return ge.get(k).length/(partidas.length||1)*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
-      return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:3,barThickness:18}]},
+      return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:4,barThickness:18}]},
     options:{indexAxis:'y',layout:{padding:{right:46}},
       onClick:function(e,els){ if(els.length) abrirDetalle(ek[els[0].index]); },
       plugins:{legend:{display:false},
@@ -1246,7 +1475,7 @@ function secTint(){
   el('h_kg4').innerHTML='Peso total revisado en el período · <b>'+fn(kg)+' kg</b> en total';
   mk('c_kg4',{type:'bar',data:{labels:tk4.map(function(k){ return k.substring(0,26); }),
     datasets:[{data:tk4.map(function(k){ return sum(gk4.get(k),function(r){return r.peso;}); }),
-      backgroundColor:C.emer,borderRadius:3,barThickness:16}]},
+      backgroundColor:C.emer,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:56}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return fn(v)+' kg';}},
       tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' kg'; }}}},
@@ -1270,6 +1499,26 @@ function secTint(){
       scales:{y:{beginAtZero:true,grid:{color:C.wl}},
         y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
         x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+
+  var filasT = pk4.map(function(k){ var g4=gp4.get(k);
+    var r4=g4.filter(function(r){ return /RECHAZ/.test(r.estado); }).length;
+    return {nombre:k, valor:ratio(r4,g4.length)*100,
+      sub:r4+' de '+g4.length+' partidas · '+fn(sum(f.filter(function(x){return x.tintoreria===k;}),
+        function(x){return x.peso;}))+' kg'}; })
+    .sort(function(a,b){ return b.valor-a.valor; });
+  ranking('rk4', filasT, META_TINT, function(v){ return v.toFixed(1)+'%'; });
+  if(filasT.length>=2){
+    var kgTop=tk4.length?tk4[0]:'';
+    icards('ic4',
+      {etq:'Menor rechazo', nombre:filasT[filasT.length-1].nombre,
+       valorTxt:filasT[filasT.length-1].valor.toFixed(1)+'%', sub:filasT[filasT.length-1].sub, forzar:''},
+      {etq:'Mayor rechazo', nombre:filasT[0].nombre,
+       valorTxt:filasT[0].valor.toFixed(1)+'%', sub:filasT[0].sub, forzar:'bad'},
+      kgTop?{etq:'Más kilos auditados', nombre:kgTop,
+       valorTxt:fn(sum(gk4.get(kgTop),function(r){return r.peso;}))+' kg',
+       sub:'peso revisado en el período', forzar:''}:null,
+      META_TINT);
+  } else { var c4=el('ic4'); if(c4) c4.innerHTML=''; }
 
   var anios4=(ST.anio==='CMP')?ANIOS:[ST.anio], ds4=[];
   anios4.forEach(function(a,i){
@@ -1368,7 +1617,7 @@ function pintarDetalle(){
   el('mo_h1').textContent = totM ? fn(totM)+' motivo(s) registrado(s)'
     : 'Todavía no hay motivos registrados en estas partidas';
   mk('mo_c1',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){ return cm[k]; }),
-    backgroundColor:C.taupe,borderRadius:3,barThickness:14}]},
+    backgroundColor:C.taupe,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return fn(v);}},
       tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
@@ -1380,7 +1629,7 @@ function pintarDetalle(){
   var tk=claves(gt,function(v){return v.length;}).slice(0,10);
   mk('mo_c2',{type:'bar',data:{labels:tk.map(function(k){return k.substring(0,24);}),
     datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),
-      backgroundColor:C.slate,borderRadius:3,barThickness:14}]},
+      backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return fn(v);}},
       tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
@@ -1458,6 +1707,92 @@ function exportarDetalle(){
     XLSX.writeFile(wb, 'Tintoreria_'+MO.estado.replace(/[^A-Za-zÁÉÍÓÚÑ0-9]+/g,'_')+'_'+
       dt.getFullYear()+p2(dt.getMonth()+1)+p2(dt.getDate())+'.xlsx');
   }catch(e){ alert('No se pudo generar el Excel: '+e.message); }
+}
+
+/* ---------------- componentes del estándar ---------------- */
+/* Semáforo único. Si no hay meta declarada no se pinta: todo en salvia. */
+function semaforo(valor, meta){
+  if(meta==null || !isFinite(meta) || meta<=0) return C.sage;
+  return valor<=meta ? C.sage : (valor<=meta*1.2 ? C.tan : C.rose);
+}
+function claseSem(valor, meta){
+  if(meta==null || !isFinite(meta) || meta<=0) return '';
+  return valor<=meta ? '' : (valor<=meta*1.2 ? 'warn' : 'bad');
+}
+
+/* Contador animado del valor de cada KPI */
+function countUp(e){
+  var end=parseFloat(e.getAttribute('data-count')), dec=parseInt(e.getAttribute('data-dec')||'0',10);
+  var pre=e.getAttribute('data-pre')||'', suf=e.getAttribute('data-suf')||'';
+  if(!isFinite(end)){ return; }
+  var t0=null;
+  function paso(t){
+    if(t0===null) t0=t;
+    var k=Math.min((t-t0)/900,1), ease=1-Math.pow(1-k,3);
+    e.textContent=pre+(end*ease).toLocaleString('es-PE',
+      {minimumFractionDigits:dec,maximumFractionDigits:dec})+suf;
+    if(k<1) requestAnimationFrame(paso);
+  }
+  requestAnimationFrame(paso);
+}
+function animarKPIs(){
+  try{
+    Array.prototype.forEach.call(document.querySelectorAll('.kpi .v[data-count]'), countUp);
+  }catch(e){}
+}
+
+/* Ranking: puesto, nombre, barra proporcional y valor. Se lee más rápido que un gráfico. */
+function ranking(id, filas, meta, fmtVal){
+  var c=el(id); if(!c) return;
+  if(!filas.length){ c.innerHTML='<div class="foot">Sin datos en el período.</div>'; return; }
+  var max=Math.max.apply(null, filas.map(function(f){ return f.valor; })) || 1;
+  var f2=fmtVal||function(v){ return fp(v/100,2); };
+  c.innerHTML='<ul class="rank">'+filas.map(function(f,i){
+    var col=semaforo(f.valor, meta);
+    return '<li><span class="n">'+(i+1)+'</span>'+
+      '<div><div class="nm">'+esc(f.nombre)+'</div>'+
+      (f.sub?'<div class="sub">'+esc(f.sub)+'</div>':'')+
+      '<div class="track"><div class="fill" style="background:'+col+'" data-w="'+
+        (f.valor/max*100).toFixed(1)+'"></div></div></div>'+
+      '<span class="val" style="color:'+col+'">'+f2(f.valor)+'</span></li>';
+  }).join('')+'</ul>';
+  setTimeout(function(){
+    Array.prototype.forEach.call(c.querySelectorAll('.fill'), function(b){
+      b.style.width=b.getAttribute('data-w')+'%'; });
+  },120);
+}
+
+/* Tres tarjetas: el mejor, el peor y el que más volumen mueve */
+function icards(id, mejor, peor, tercera, meta){
+  var c=el(id); if(!c) return;
+  function tarjeta(t){
+    if(!t) return '';
+    var cls = t.forzar!==undefined ? t.forzar : claseSem(t.valor, meta);
+    return '<div class="icard '+cls+'"><div class="ic-l">'+esc(t.etq)+'</div>'+
+      '<div class="ic-n">'+esc(t.nombre)+'</div>'+
+      '<div class="ic-v">'+t.valorTxt+'</div>'+
+      (t.sub?'<div class="ic-s">'+esc(t.sub)+'</div>':'')+'</div>';
+  }
+  var h=tarjeta(mejor)+tarjeta(peor)+tarjeta(tercera);
+  c.innerHTML = h ? '<div class="icards">'+h+'</div>' : '';
+}
+
+/* Pestañas por bloque temático dentro de cada indicador */
+function bloque(prefijo, i, btn){
+  Array.prototype.forEach.call(document.querySelectorAll('#'+prefijo+'_tabs button'),
+    function(b){ b.classList.remove('active'); });
+  if(btn) btn.classList.add('active');
+  Array.prototype.forEach.call(document.querySelectorAll('#'+prefijo+'_panes > .tabpane'),
+    function(p,k){ p.classList.toggle('active', k===i); });
+}
+function armarBloques(prefijo, nombres){
+  var t=el(prefijo+'_tabs'); if(!t) return;
+  t.innerHTML=nombres.map(function(n,i){
+    return '<button type="button" class="'+(i===0?'active':'')+'">'+esc(n)+'</button>'; }).join('');
+  Array.prototype.forEach.call(t.querySelectorAll('button'), function(b,i){
+    b.onclick=function(){ bloque(prefijo, i, b); };
+  });
+  bloque(prefijo, 0, t.querySelector('button'));
 }
 
 /* ---------------- veredicto, insight y ayuda ---------------- */
@@ -1556,6 +1891,7 @@ function render(){
       el('avisoSnap').style.display='block';
     }else{
       pintarAyuda();
+    animarKPIs();
     el('est').textContent='Actualizado: '+new Date().toLocaleString('es-PE');
     }
   }catch(e){ error('Error al calcular los indicadores: '+e.message); }
