@@ -67,8 +67,8 @@
   .kpi.bad::after,.kpi.alert::after{background:var(--rose);} .kpi.money::after{background:var(--taupe);}
   .kpi .l{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--stone);}
   .kpi .row{display:flex;align-items:baseline;gap:8px;margin-top:5px;flex-wrap:wrap;}
-  .kpi .v{font-size:30px;font-weight:700;line-height:1;color:var(--sage);}
-  .kpi.primary .v{font-size:34px;}
+  .kpi .v{font-size:32px;font-weight:700;line-height:1;color:var(--sage);}
+  .kpi.primary .v{font-size:36px;}
   .kpi.pr .v{color:var(--slate);} .kpi.meta .v{color:var(--tan);}
   .kpi.bad .v,.kpi.alert .v{color:var(--rose);} .kpi.money .v{color:var(--taupe);}
   .kpi .d{font-size:12px;font-weight:700;padding:2px 8px;border-radius:20px;}
@@ -76,7 +76,10 @@
   .d.down{color:var(--sage);background:#E7F4EF;}
   .d.flat{color:var(--stone);background:var(--warm-light);}
   .kpi .s{font-size:11.5px;color:var(--stone);margin-top:3px;}
-  .kpi .spark{height:26px;margin-top:6px;}
+  .kpi .spark{height:26px;margin-top:6px;display:block;width:100%;}
+  .kpi .spark path{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .kpi .spark .area{stroke:none;}
+  .kpi .spark circle{stroke:#fff;stroke-width:1.5;}
 
   /* Insight bar */
   .insight{background:var(--card);border-left:4px solid var(--tan);
@@ -547,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v2.5 · 04-09-2026';
+var VERSION = 'v2.6 · 04-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbzZpAse_qhFJGCjlpWpBHNDiMdCcM9GfqQO1LcP16Kx4z6R1FMzbfqV6YDI9jYuM60v/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -579,6 +582,12 @@ Chart.defaults.maintainAspectRatio=false;
 
 var C={sage:'#0F7A5A',rose:'#DC2626',tan:'#F59E0B',slate:'#4E6B78',emer:'#10B981',
        taupe:'#B45309',stone:'#5F726C',warm:'#DCE5E2',wl:'#F1F6F4'};
+function hexRgba(hex, a){
+  var h=String(hex).replace('#',''); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var n=parseInt(h,16);
+  if(!isFinite(n)) return 'rgba(15,122,90,'+a+')';
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
 var MESES=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SETIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
 var M3=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
 
@@ -610,7 +619,7 @@ function fdmy(s){ return T(s) ? T(s).split('-').reverse().join('/') : ''; }
 function pct(v,dec){ return v==null||!isFinite(v) ? '—' : {n:v*100, dec:(dec==null?2:dec), suf:'%'}; }
 function num(v){ return {n:v, dec:0, suf:''}; }
 
-function kpi(v,l,sub,cls,delta){
+function kpi(v,l,sub,cls,delta,spark){
   var d = '';
   if(delta && delta.txt){
     d = '<span class="d '+delta.cls+'">'+delta.txt+'</span>';
@@ -623,7 +632,8 @@ function kpi(v,l,sub,cls,delta){
     : '<span class="v">'+v+'</span>';
   return '<div class="kpi '+(cls||'')+'"><div class="l">'+l+'</div>'+
     '<div class="row">'+val+d+'</div>'+
-    (sub?'<div class="s">'+sub+'</div>':'')+'</div>';
+    (sub?'<div class="s">'+sub+'</div>':'')+
+    (spark||'')+'</div>';
 }
 /* subir es malo en segundas y rechazos: la flecha arriba va en rojo */
 function delta(actual, previo, subirEsMalo){
@@ -645,11 +655,6 @@ function degradado(ctx, area, rgbaTop){
   g.addColorStop(0, rgbaTop);
   g.addColorStop(1, 'rgba(255,255,255,0)');
   return g;
-}
-function hexRgba(hex, a){
-  var h=hex.replace('#',''); if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-  var n=parseInt(h,16);
-  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
 }
 /* aplica relleno y resalte del último punto a los datasets de línea de un config */
 function realzarLineas(cfg){
@@ -937,7 +942,6 @@ function secSegundas(){
              :(wp.pct!=null?'<span class="badge ok" title="Calculado por el tablero desde la data del Sistema">calculado</span>':'');
   var sub=decl?'valor declarado, sin denominador':(wp.pct!=null?fn(wp.seg)+' sobre '+fn(wp.base)+' confeccionadas':'sin denominador');
 
-  /* delta contra el período anterior, solo si existe */
   function pctMes(a,m,tipo){
     var f=SEG.tot.filter(function(r){ return r.anio===a&&r.mes===m&&r.tipo===tipo; });
     if(!f.length) return null;
@@ -945,6 +949,7 @@ function secSegundas(){
     if(b>0) return sum(f,function(r){return r.segundas;})/b;
     return f[0].pct>0?f[0].pct:null;
   }
+  /* delta contra el período anterior, solo si existe */
   var dPz=null, dPr=null;
   if(ST.anio!=='CMP' && ST.mes!=='TODOS'){
     var im=MESES.indexOf(ST.mes);
@@ -952,9 +957,20 @@ function secSegundas(){
     dPz = delta(pctPz, pctMes(aPrev,mPrev,'PIEZA'), true);
     dPr = delta(pctPr, pctMes(aPrev,mPrev,'PRENDA'), true);
   }
+  /* serie mensual para el sparkline: hay 12 meses, así que se dibuja */
+  var anioSp = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
+  var spPz = MESES.map(function(m){ return pctMes(anioSp,m,'PIEZA'); })
+    .map(function(v){ return v==null?null:v*100; });
+  var spPr = MESES.map(function(m){ return pctMes(anioSp,m,'PRENDA'); })
+    .map(function(v){ return v==null?null:v*100; });
+  /* el KPI principal se colorea con el semáforo: hay meta declarada */
+  var clsPz = pctPz==null ? 'primary'
+    : 'primary '+(pctPz<=META_PZ ? '' : (pctPz<=META_PZ*1.2 ? 'meta' : 'alert'));
   el('k1').innerHTML =
-    kpi(pctPz==null?'—':{n:pctPz*100,dec:2,suf:'%',extra:bd},'% de piezas segundas',sub,'primary',dPz)+
-    kpi(pct(pctPr),'% de prendas segundas',wr.pct!=null?fn(wr.seg)+' sobre '+fn(wr.base)+' confeccionadas':sub,'pr',dPr)+
+    kpi(pctPz==null?'—':{n:pctPz*100,dec:2,suf:'%',extra:bd},'% de piezas segundas',sub,clsPz,dPz,
+      sparkline(spPz, semaforo(pctPz*100, META_PZ*100)))+
+    kpi(pct(pctPr),'% de prendas segundas',wr.pct!=null?fn(wr.seg)+' sobre '+fn(wr.base)+' confeccionadas':sub,'pr',dPr,
+      sparkline(spPr, C.slate))+
     kpi(num(sum(pz,function(r){return r.segundas;})),'Piezas segundas',etiqueta())+
     kpi(num(sum(pr,function(r){return r.segundas;})),'Prendas segundas',etiqueta())+
     kpi(pct(META_PZ),'Meta','piezas y prendas','meta');
@@ -1123,8 +1139,16 @@ function secCorte(){
   var cort=sum(liq,function(r){return r.cortadas;});
   var prIns=sum(ins,function(r){return r.prendas;});
 
+  var anioSp2 = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
+  var spC = MESES.map(function(m){
+    var sm=COR.aud.filter(function(r){ return r.anio===anioSp2&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; });
+    if(!sm.length) return null;
+    var p3=ultimoPorOC(sm), k3=Object.keys(p3);
+    var v3=ratio(k3.filter(function(x){return p3[x].estado==='RECHAZADO';}).length,k3.length);
+    return v3==null?null:v3*100; });
   el('k2').innerHTML=
-    kpi(pct(ratio(rech.length,ocs.length)),'% Rech sobre N° O/C',rech.length+' de '+fn(ocs.length)+' auditadas','primary')+
+    kpi(pct(ratio(rech.length,ocs.length)),'% Rech sobre N° O/C',rech.length+' de '+fn(ocs.length)+' auditadas','primary',null,
+      sparkline(spC, C.rose))+
     kpi(num(ocs.length),'N° O/C auditadas',etiqueta())+
     kpi(pct(ratio(prRech,prendas)),'% Rech sobre N° Prendas',fn(prRech)+' de '+fn(prendas))+
     kpi(cort>0?num(cort):'—','Prendas cortadas',cort>0?'liquidación del Sistema':'sin liquidación del período')+
@@ -1336,8 +1360,15 @@ function secDefectos(){
   if(restoN>0){ ks.slice(18).forEach(function(k){ restoV+=acum[k]; });
     top=top.concat(['RESTO DE TIPOS ('+restoN+')']); acum['RESTO DE TIPOS ('+restoN+')']=restoV; }
 
+  var anioSp3 = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
+  var spD = MESES.map(function(m){
+    var sm=DEF.cab.filter(function(r){ return r.anio===anioSp3&&r.mes===m; });
+    if(!sm.length) return null;
+    var v6=ratio(sum(sm,function(r){return r.total;}),sum(sm,function(r){return r.prendas;}));
+    return v6==null?null:v6*100; });
   el('k3').innerHTML=
-    kpi(num(cab.length),'Planillas inspeccionadas al 100%',etiqueta(),'primary')+
+    kpi(num(cab.length),'Planillas inspeccionadas al 100%',etiqueta(),'primary',null,
+      sparkline(spD, C.taupe))+
     kpi(num(totDef),'Defectos textiles contados',ks.length+' tipos distintos')+
     kpi(pct(ratio(totDef,prendas)),'% de rechazo',fn(totDef)+' defectos ÷ '+fn(prendas)+' prendas')+
     kpi(ks.length?ks[0]:'—','Defecto más recurrente',totDef>0?fp(acum[ks[0]]/totDef,1)+' del total':'');
@@ -1478,8 +1509,17 @@ function secTint(){
   var obs=partidas.filter(function(r){ return /OBSERVAD/.test(r.estado); }).length;
   var rec=partidas.filter(function(r){ return /RECHAZ/.test(r.estado); }).length;
 
+  var anioSp4 = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
+  var spT = MESES.map(function(m){
+    var sm=TIN.filter(function(r){ return r.anio===anioSp4&&r.mes===m&&!excl(r.tintoreria); });
+    if(!sm.length) return null;
+    var u5={}; sm.forEach(function(r){ var k5=r.partida.toUpperCase();
+      if(!u5[k5]||(r.fecha||'')>=(u5[k5].fecha||'')) u5[k5]=r; });
+    var arr5=Object.keys(u5).map(function(k5){ return u5[k5]; });
+    return arr5.length ? arr5.filter(function(r){ return /RECHAZ/.test(r.estado); }).length/arr5.length*100 : null; });
   el('k4').innerHTML=
-    kpi(num(partidas.length),'Partidas revisadas',fn(f.length)+' revisiones en total','primary')+
+    kpi(num(partidas.length),'Partidas revisadas',fn(f.length)+' revisiones en total','primary',null,
+      sparkline(spT, C.rose))+
     kpi(num(kg),'Kilos auditados',etiqueta())+
     kpi(pct(ratio(apro,partidas.length)),'% aprobadas',fn(apro)+' partidas')+
     kpi(pct(ratio(obs,partidas.length)),'% observadas',fn(obs)+' partidas','meta')+
@@ -1762,6 +1802,26 @@ function semaforo(valor, meta){
 function claseSem(valor, meta){
   if(meta==null || !isFinite(meta) || meta<=0) return '';
   return valor<=meta ? '' : (valor<=meta*1.2 ? 'warn' : 'bad');
+}
+
+/* Sparkline: SVG mínimo con la serie de los últimos meses. Necesita 6 períodos;
+   con menos no se dibuja, porque una línea de dos puntos no dice nada. */
+function sparkline(serie, color){
+  var v = (serie||[]).filter(function(x){ return x!=null && isFinite(x); });
+  if(v.length < 6) return '';
+  var w = 120, h = 26, min = Math.min.apply(null,v), max = Math.max.apply(null,v);
+  var rango = (max-min) || 1;
+  var pts = v.map(function(y,i){
+    return [ (i/(v.length-1))*(w-4)+2, h-2 - ((y-min)/rango)*(h-6) ];
+  });
+  var d = pts.map(function(p2,i){ return (i?'L':'M')+p2[0].toFixed(1)+' '+p2[1].toFixed(1); }).join(' ');
+  var area = d+' L'+pts[pts.length-1][0].toFixed(1)+' '+h+' L'+pts[0][0].toFixed(1)+' '+h+' Z';
+  var ult = pts[pts.length-1];
+  return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" preserveAspectRatio="none">'+
+    '<path class="area" d="'+area+'" fill="'+hexRgba(color,.13)+'"/>'+
+    '<path d="'+d+'" stroke="'+color+'"/>'+
+    '<circle cx="'+ult[0].toFixed(1)+'" cy="'+ult[1].toFixed(1)+'" r="2.6" fill="'+color+'"/>'+
+    '</svg>';
 }
 
 /* Contador animado del valor de cada KPI */
