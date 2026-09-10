@@ -92,6 +92,13 @@
   .flist .acc select,.flist .acc input{font-family:inherit;font-size:12.5px;border:1.5px solid var(--warm);
     border-radius:6px;padding:6px 9px;}
   .flist .acc input.obs{flex:1;min-width:180px;}
+  .fecha{position:relative;display:flex;align-items:center;}
+  .fecha input[type=text]{padding-right:38px;}
+  .fecha .calbtn{position:absolute;right:6px;width:26px;height:26px;display:flex;align-items:center;
+    justify-content:center;font-size:15px;cursor:pointer;border-radius:6px;opacity:.65;}
+  .fecha .calbtn:hover{opacity:1;background:var(--warm-light);}
+  .fecha .calbtn input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;
+    width:100%;height:100%;border:none;padding:0;}
   #v_rep table{width:100%;border-collapse:collapse;font-size:12px;}
   #v_rep th{background:var(--warm-light);color:var(--stone);font-weight:700;padding:6px 8px;
     border:1px solid var(--warm);text-align:left;white-space:nowrap;}
@@ -220,40 +227,21 @@
         </div>
         <div id="a_flista"></div>
       </div>
-      <div class="card">
-        <h2>Empieza por la partida o la O/Corte</h2>
-        <div class="ch">Si es nueva, se abre el formulario para registrarla; si ya existe, aparece su historial para agregar un seguimiento.</div>
-        <div class="grid">
-          <div>
-            <label>Buscar por</label>
-            <select id="a_modo">
-              <option value="partida">Partida</option>
-              <option value="oc">O/Corte</option>
-            </select>
-          </div>
-          <div>
-            <label id="a_lbl">Partida <span class="req">*</span></label>
-            <input type="text" id="a_oc" placeholder="25-546068" list="dl_pcorte" autocomplete="off">
-            <div class="hint" id="a_hint">Al escribir aparecen las partidas ya registradas</div>
-          </div>
-          <div style="align-self:end">
-            <button class="btn" type="button" id="a_buscar">Continuar</button>
-          </div>
-        </div>
-        <div id="a_hist"></div>
-      </div>
-
-      <div class="card hide" id="a_form">
-        <h2 id="a_titulo">Nueva auditoría</h2>
-        <div class="ch" id="a_sub">Completa los datos de la planilla</div>
+      <div class="card" id="a_form">
+        <h2 id="a_titulo">Registrar auditoría de Corte</h2>
+        <div class="ch" id="a_sub">Escribe los datos de la planilla. Si la O/Corte ya está registrada, el formulario te avisa y completa lo que ya se sabe.</div>
 
         <div class="grid">
+          <div><label>O/Corte <span class="req">*</span></label>
+            <input type="text" id="a_ocnew" list="dl_ocs" placeholder="50166-4" autocomplete="off">
+            <div class="hint">Con su ítem, como en la planilla</div></div>
           <div><label>Fecha del registro <span class="req">*</span></label><input type="text" id="a_fecha" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
             <div class="hint" id="a_fh">Fecha de esta auditoría</div></div>
+          <div style="align-self:end"><button class="btn sec" type="button" id="a_limpiar2">Empezar de nuevo</button></div>
         </div>
+        <div id="a_hist"></div>
+
         <div class="grid" id="a_bloque1" style="margin-top:12px">
-          <div><label>O/Corte <span class="req">*</span></label><input type="text" id="a_ocnew" list="dl_ocs" placeholder="50166-4" autocomplete="off">
-            <div class="hint">Con su ítem, como en la planilla</div></div>
           <div><label>Partida</label><input type="text" id="a_partida" list="dl_pcorte" autocomplete="off"></div>
           <div><label>Estilo</label><input type="text" id="a_estilo" list="dl_estilos" autocomplete="off"></div>
           <div><label>Grupo textil</label><input type="text" id="a_grupo" list="dl_grupos" placeholder="THY-1049" autocomplete="off"></div>
@@ -386,6 +374,10 @@
           <div><label>Auditores</label><select id="t_auditores"></select>
             <input type="text" id="t_auditores_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
           <div><label>Estado <span class="req">*</span></label><select id="t_estado"></select></div>
+          <div><label>Familia del defecto</label><select id="t_fam1"></select></div>
+          <div style="grid-column:span 2"><label>Defecto</label><select id="t_def1"></select></div>
+          <div><label>Segunda familia <span style="font-weight:400;color:var(--stone)">(opcional)</span></label><select id="t_fam2"></select></div>
+          <div style="grid-column:span 2"><label>Segundo defecto</label><select id="t_def2"></select></div>
           <div><label>Código de origen del defecto</label><select id="t_origen"></select>
             <input type="text" id="t_origen_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
         </div>
@@ -441,14 +433,28 @@
         <h2>Período</h2>
         <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar.</div>
         <div class="grid">
-          <div><label>Desde</label><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-          <div><label>Hasta</label><input type="text" id="r_hasta" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+          <div><label>Desde</label>
+            <div class="fecha"><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="r_desde_cal"></span></div></div>
+          <div><label>Hasta</label>
+            <div class="fecha"><input type="text" id="r_hasta" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="r_hasta_cal"></span></div></div>
           <div style="align-self:end">
             <button class="btn" type="button" id="r_ver">Ver</button>
             <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
             <button class="btn sec" type="button" id="r_sem" style="margin-left:6px">Últimos 7 días</button>
+            <button class="btn sec" type="button" id="r_todo" style="margin-left:6px">Todo el historial</button>
           </div>
         </div>
+        <div class="grid" style="margin-top:14px">
+          <div><label>Tintorería</label><select id="r_ftint"><option value="">Todas</option></select></div>
+          <div><label>Grupo</label><input type="text" id="r_fgrupo" placeholder="Ej: PAK-1 o THY" autocomplete="off"><div class="hint" id="r_hgrupo"></div></div>
+          <div><label>Color</label><input type="text" id="r_fcolor" placeholder="Ej: NAVY o BLACK" autocomplete="off"><div class="hint" id="r_hcolor"></div></div>
+          <div><label>Partida</label><input type="text" id="r_fpartida" placeholder="Número o parte del número" autocomplete="off"></div>
+          <div><label>Estado</label><select id="r_festado"><option value="">Todos</option></select></div>
+          <div style="align-self:end"><button class="btn sec" type="button" id="r_limpiar">Quitar filtros</button></div>
+        </div>
+
         <div style="margin-top:12px">
           <button class="btn sec" type="button" id="r_print">Imprimir</button>
           <button class="btn sec" type="button" id="r_copiar" style="margin-left:8px">Copiar la tabla</button>
@@ -504,7 +510,7 @@
 /* ============================================================
    CONFIGURACIÓN
    ============================================================ */
-var API   = 'https://script.google.com/macros/s/AKfycbzZpAse_qhFJGCjlpWpBHNDiMdCcM9GfqQO1LcP16Kx4z6R1FMzbfqV6YDI9jYuM60v/exec';
+var API   = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var TOKEN = 'C0196';
 
 var MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SETIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
@@ -626,7 +632,40 @@ function detallePiezas(wb){
   }
   return out;
 }
+/* Prendas: primero la hoja EP-COLOR-GRUPO-MOTIVO, que trae cliente, color y tela.
+   Si el export no la trae, se usa la hoja oculta Clasificacion Segundas como antes. */
 function detallePrendas(wb){
+  var porEP = detallePrendasEP(wb);
+  if(porEP && porEP.length) return porEP;
+  return detallePrendasClas(wb);
+}
+
+function detallePrendasEP(wb){
+  var ws = buscarHoja(wb, ['EP-COLOR-GRUPO-MOTIVO','EP COLOR GRUPO MOTIVO']); if(!ws) return null;
+  var filas = aFilas(ws);
+  var h = encabezado(filas, ['CLIENTE','ESTILO PROPIO','COLOR','GRUPO','AREA GENERADORA','MOTIVO DE 2DA','CANT.'], 5);
+  if(!h) return null;
+  var out = [];
+  for(var i=h.fila+1;i<filas.length;i++){
+    var f = filas[i]||[];
+    var cli = T(celda(f,h.idx,'CLIENTE'));
+    if(!cli || /^TOTAL/i.test(cli)) continue;
+    /* la hoja intercala subtotales por estilo: se reconocen porque no traen motivo.
+       Si se cuentan, el total sale al doble. */
+    var mot = T(celda(f,h.idx,'MOTIVO DE 2DA'));
+    if(!mot || /^TOTAL/i.test(mot)) continue;
+    var cant = N(celda(f,h.idx,'CANT.')); if(cant<=0) continue;
+    var grupo = UP(celda(f,h.idx,'GRUPO'));
+    out.push({tipo:'PRENDA', cliente:(grupo.split('-')[0].trim() || UP(cli).split(/[\s\-]+/)[0]),
+      grupo:grupo||UP(cli),
+      estilo:T(celda(f,h.idx,'ESTILO PROPIO')).replace(/\.0$/,''),
+      color:UP(celda(f,h.idx,'COLOR')), op:'', oc:'', partida:'',
+      area:UP(celda(f,h.idx,'AREA GENERADORA')), motivo:UP(mot), cant:cant});
+  }
+  return out;
+}
+
+function detallePrendasClas(wb){
   var ws = buscarHoja(wb, ['CLASIFICACION SEGUNDAS']); if(!ws) return null;
   var filas = aFilas(ws);
   var h = encabezado(filas, ['OP / CLIENTE','REQUERIDO','CORTADO','HABILITADO','DESPACHADO','AREA','MOTIVO','PRENDAS','TOTAL SEGUNDAS']);
@@ -1295,6 +1334,7 @@ function verDashboard(archivo){
 }
 
 function irA(vista, tipo){
+  if(vista==='v_rep') setTimeout(function(){ cargarListasRep(function(){}); }, 60);
   Array.prototype.forEach.call(document.querySelectorAll('.vista'), function(v){ v.classList.remove('active'); });
   var v = el(vista); if(v) v.classList.add('active');
   if(vista==='v_carga' && tipo){
@@ -1347,6 +1387,20 @@ function iso2dmy(v){ var s2=T(v); return /^\d{4}-\d{2}-\d{2}/.test(s2)
   ? s2.substring(0,10).split('-').reverse().join('/') : s2; }
 /* los campos de fecha: al entrar se selecciona todo (para escribir encima sin borrar),
    se ponen las barras solas y Enter confirma */
+/* El calendario nativo escribe siempre en dd/mm/aaaa sobre el campo de texto. */
+function ligarCalendario(id){
+  var cal = el(id+'_cal'), txt = el(id);
+  if(!cal || !txt) return;
+  cal.onchange = function(){
+    if(!cal.value) return;
+    txt.value = iso2dmy(cal.value);
+    verReporte();
+  };
+  txt.addEventListener('change', function(){
+    var v = dmy2iso(txt.value); if(v) cal.value = v;
+  });
+}
+
 function ligarFecha(id, alEnter){
   var c = el(id); if(!c) return;
   c.onfocus = function(){ try{ c.select(); }catch(e){} };
@@ -1466,6 +1520,35 @@ function ponerTint(id, valor){
   s2.value = v;
 }
 
+/* Codificación de defectos: la familia filtra la lista de defectos. */
+var DEFTINT = {};
+function armarDefectos(){
+  DEFTINT = {};
+  (CAT.DEFECTO_TINT || []).forEach(function(v){
+    var p = String(v).split('|');
+    if(p.length < 3) return;
+    var cod = T(p[0]).toUpperCase(), area = T(p[1]).toUpperCase(), def = T(p[2]).toUpperCase();
+    if(!DEFTINT[cod]) DEFTINT[cod] = {area:area, defs:[]};
+    if(DEFTINT[cod].defs.indexOf(def) < 0) DEFTINT[cod].defs.push(def);
+  });
+  ['1','2'].forEach(function(n){
+    var sf = el('t_fam'+n); if(!sf) return;
+    sf.innerHTML = '<option value="">— ninguno —</option>' +
+      Object.keys(DEFTINT).map(function(c){
+        return '<option value="'+c+'">'+esc(DEFTINT[c].area)+' ('+c+')</option>'; }).join('');
+    sf.onchange = function(){ llenarDefectos(n); };
+    llenarDefectos(n);
+  });
+}
+function llenarDefectos(n){
+  var cod = T(el('t_fam'+n).value), sd = el('t_def'+n);
+  if(!sd) return;
+  var lista = (DEFTINT[cod] && DEFTINT[cod].defs) || [];
+  sd.innerHTML = '<option value="">'+(cod?'— elegir —':'elige primero la familia')+'</option>' +
+    lista.map(function(d){ return '<option value="'+d.replace(/"/g,'&quot;')+'">'+esc(d)+'</option>'; }).join('');
+  sd.disabled = !cod;
+}
+
 function cargarCatalogos(){
   jsonp(API+'?action=catalogos', function(res){
     if(!res || !res.ok) return;
@@ -1475,6 +1558,7 @@ function cargarCatalogos(){
     TELAS.forEach(function(t){ TELAMAP[String(t.cod).toUpperCase()] = t.desc; });
     datalist('dl_telas', TELAS.map(function(t){ return t.cod; }));
     pintarCerrados();
+    armarDefectos();
     opciones('a_modulo', CAT.MODULO_TALLER || [], true);
     opciones('a_origen', CAT.ORIGEN_CORTE || ['S/O','TEXTIL','CORTE'], false);
     opciones('t_estado', CAT.ESTADO_TINT || [], true);
@@ -1486,7 +1570,10 @@ function cargarCatalogos(){
   });
 }
 function estadosAud(tipo){
-  var base = (tipo==='SEGUIMIENTO') ? (CAT.ESTADO_SEG || []) : ['APROBADO','RECHAZADO'];
+  var base;
+  if(tipo==='SEGUIMIENTO') base = (CAT.ESTADO_SEG || []);
+  else if(tipo==='TODOS')  base = ['APROBADO','RECHAZADO'].concat(CAT.ESTADO_SEG || []);
+  else base = ['APROBADO','RECHAZADO'];
   opciones('a_estado', base, true);
 }
 
@@ -1570,60 +1657,104 @@ function cargarIndices(){
 }
 
 /* ---------------- reporte de partidas revisadas ---------------- */
-var TINT_TODO = null;
+/* El filtrado ocurre en el tablero: traer las 2,400 revisiones completas en cada
+   consulta dejaba la página colgada. Aquí solo se guardan los valores de los desplegables. */
+var REP_LISTAS = null, REP_PIDE = 0;
 
-function cargarTint(fn2){
-  if(TINT_TODO){ fn2(); return; }
-  msg('r_salida','warn','<span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Trayendo las revisiones…');
-  jsonp(API+'?action=read_tint', function(res){
-    TINT_TODO = (res&&res.ok) ? (res.filas||[]) : [];
-    el('r_salida').innerHTML='';
-    fn2();
-  }, function(){ msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+function cargarListasRep(luego){
+  if(REP_LISTAS){ luego(); return; }
+  jsonp(API+'?action=rep_listas', function(res){
+    REP_LISTAS = (res && res.ok) ? res : {tintorerias:[],grupos:[],colores:[],estados:[]};
+    pintarListasRep();
+    luego();
+  }, function(){
+    REP_LISTAS={tintorerias:[],grupos:[],colores:[],estados:[]};
+    pintarListasRep();
+    msg('r_salida','err','No se pudieron traer las listas de filtros. Revisa la conexión y vuelve a dar Ver.');
+    luego();
+  });
+}
+
+function pintarListasRep(){
+  if(!REP_LISTAS) return;
+  function opts(id, valores, etq){
+    var sel=el(id); if(!sel) return;
+    var prev=sel.value;
+    sel.innerHTML='<option value="">'+etq+'</option>'+
+      (valores||[]).map(function(v){ return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join('');
+    if(prev) sel.value=prev;
+  }
+  opts('r_ftint',  REP_LISTAS.tintorerias, 'Todas');
+  opts('r_festado',REP_LISTAS.estados,     'Todos');
+  /* grupo y color son cientos: se buscan escribiendo parte del nombre */
+  var hg=el('r_hgrupo'), hc=el('r_hcolor');
+  if(hg) hg.textContent = REP_LISTAS.n_grupos ? 'Escribe parte del nombre · hay '+fn(REP_LISTAS.n_grupos)+' grupos' : '';
+  if(hc) hc.textContent = REP_LISTAS.n_colores ? 'Escribe parte del nombre · hay '+fn(REP_LISTAS.n_colores)+' colores' : '';
+}
+function textoFiltro(){
+  var p=[];
+  if(T(el('r_ftint').value))    p.push('tintorería '+T(el('r_ftint').value));
+  if(T(el('r_fgrupo').value))   p.push('grupo que contenga «'+UP(el('r_fgrupo').value)+'»');
+  if(T(el('r_fcolor').value))   p.push('color que contenga «'+UP(el('r_fcolor').value)+'»');
+  if(T(el('r_festado').value))  p.push('estado '+T(el('r_festado').value));
+  if(T(el('r_fpartida').value)) p.push('partida que contenga «'+UP(el('r_fpartida').value)+'»');
+  return p.length ? ' · filtrado por '+p.join(', ') : '';
+}
+function hayFiltro(){ return textoFiltro() !== ''; }
+
+function pintarReporte(res, d1, d2){
+  var f = res.filas || [];
+  el('r_salida').innerHTML='';
+  el('r_titulo').textContent = 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2)+
+    ' · '+f.length+' revisión(es)'+textoFiltro();
+  if(!f.length){
+    el('r_kg').innerHTML=''; el('r_res').innerHTML='';
+    el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
+      (hayFiltro()?' con esos filtros':'')+' en esas fechas.</td></tr>';
+    return;
+  }
+  var kg=res.kg||{}, kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
+  el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
+    kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
+    '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(res.total||0)+'</b></td></tr>';
+  var est=res.estados||{}, ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
+  el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
+    ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
+    '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(res.partidas||0)+'</b></td></tr>';
+  el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
+    '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
+    f.map(function(r){
+      return '<tr><td>'+esc(iso2dmy(r.fecha))+'</td><td>'+esc(r.tintoreria)+'</td>'+
+        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
+        '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
+        '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
+    }).join('');
 }
 
 function verReporte(){
-  cargarTint(function(){
+  cargarListasRep(function(){
     var d1=dmy2iso(el('r_desde').value), d2=dmy2iso(el('r_hasta').value);
     if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
     if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
-    var f = TINT_TODO.filter(function(r){ return r.fecha && r.fecha>=d1 && r.fecha<=d2; })
-      .sort(function(a,b){ return (a.fecha<b.fecha?-1:(a.fecha>b.fecha?1:
-        (T(a.tintoreria)<T(b.tintoreria)?-1:1))); });
-
-    el('r_bloque').style.display = 'block';
-    el('r_titulo').textContent = 'Del '+d1.split('-').reverse().join('/')+' al '+d2.split('-').reverse().join('/')+
-      ' · '+f.length+' revisión(es)';
-
-    if(!f.length){
-      el('r_kg').innerHTML=''; el('r_res').innerHTML='';
-      el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones registradas en esas fechas.</td></tr>';
-      return;
-    }
-
-    var kg={}, tot=0;
-    f.forEach(function(r){ var k=T(r.tintoreria)||'SIN TINTORERÍA';
-      kg[k]=(kg[k]||0)+N(r.peso); tot+=N(r.peso); });
-    var kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
-    el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
-      kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
-      '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(tot)+'</b></td></tr>';
-
-    var est={}; f.forEach(function(r){ var e=T(r.estado)||'SIN ESTADO'; est[e]=(est[e]||0)+1; });
-    var ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
-    var pa={}; f.forEach(function(r){ pa[T(r.partida).toUpperCase()]=1; });
-    el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
-      ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
-      '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(Object.keys(pa).length)+'</b></td></tr>';
-
-    el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
-      '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
-      f.map(function(r){
-        return '<tr><td>'+esc(T(r.fecha).split('-').reverse().join('/'))+'</td>'+
-          '<td>'+esc(r.tintoreria)+'</td><td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
-          '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
-          '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
-      }).join('');
+    var url = API+'?action=rep_datos&desde='+d1+'&hasta='+d2+
+      '&tint='+encodeURIComponent(T(el('r_ftint').value))+
+      '&grupo='+encodeURIComponent(UP(el('r_fgrupo').value))+
+      '&color='+encodeURIComponent(UP(el('r_fcolor').value))+
+      '&estado='+encodeURIComponent(T(el('r_festado').value))+
+      '&partida='+encodeURIComponent(UP(el('r_fpartida').value));
+    var pide = ++REP_PIDE;
+    el('r_bloque').style.display='block';
+    el('r_titulo').innerHTML='<span class="spin"></span>Buscando…';
+    el('r_kg').innerHTML=''; el('r_res').innerHTML=''; el('r_tabla').innerHTML='';
+    jsonp(url, function(res){
+      if(pide !== REP_PIDE) return;
+      if(!res || !res.ok){ msg('r_salida','err','No se pudo consultar el tablero.'); return; }
+      pintarReporte(res, d1, d2);
+    }, function(){
+      if(pide !== REP_PIDE) return;
+      msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.');
+      el('r_titulo').textContent='';
+    });
   });
 }
 
@@ -1642,6 +1773,16 @@ function copiarTabla(){
 function hoyReporte(){
   var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
 }
+function todoReporte(){
+  cargarListasRep(function(){
+    if(REP_LISTAS && REP_LISTAS.desde){
+      el('r_desde').value=iso2dmy(REP_LISTAS.desde);
+      el('r_hasta').value=iso2dmy(REP_LISTAS.hasta);
+    }
+    verReporte();
+  });
+}
+
 function semanaReporte(){
   var d=new Date(), a=new Date(d.getTime()-6*86400000);
   function dmy(x){ return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear(); }
@@ -1665,7 +1806,7 @@ var FDATOS = {a:[], t:[]}, FSEL = {a:{}, t:{}}, FVISIBLE = {a:false, t:false};
 /* Después de guardar cualquier cosa, todo lo que esté a la vista se vuelve a leer del tablero:
    la lista por estado, el historial abierto y los datos del reporte de partidas. */
 function refrescarTodo(pref, clave){
-  TINT_TODO = null;                       /* el reporte vuelve a traer los datos */
+  REP_LISTAS = null;                       /* el reporte vuelve a traer los datos */
   if(FVISIBLE[pref]) verPorEstado(pref);  /* la lista por estado se recarga sola */
   if(clave){                              /* y el historial que esté abierto */
     if(pref==='t'){
@@ -1673,7 +1814,7 @@ function refrescarTodo(pref, clave){
         if(r&&r.ok) pintarHistorialTint(r); }, function(){});
     }else{
       jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(clave), function(r){
-        if(r&&r.ok) pintarHistorialAud(r); }, function(){});
+        if(r&&r.ok) pintarAvisoOC(r); }, function(){});
     }
   }
 }
@@ -1838,201 +1979,182 @@ function vaciarFormAud(){
 }
 function vaciarFormTint(){
   ['t_tint','t_auditores','t_origen'].forEach(function(id){ ponerCerrado(id,''); });
+  ['1','2'].forEach(function(n){ el('t_fam'+n).value=''; llenarDefectos(n); });
   ['t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value = hoyDMY();
   el('t_salida').innerHTML = '';
 }
 
-function pintarHistorialAud(res){
-  var c = el('a_hist');
-  vaciarFormAud();
-  if(!res || !res.existe){
-    AUD_EXISTE = null; AUD_ULTFECHA = '';
-    c.innerHTML = '<div class="msg ok">O/Corte nueva. Completa los datos de la auditoría.</div>';
-    el('a_titulo').textContent = 'Nueva auditoría';
-    el('a_fh').textContent = 'Fecha de esta auditoría';
-    if(modoAud()==='partida') el('a_partida').value = T(el('a_oc').value);
-    else el('a_ocnew').value = T(el('a_oc').value);
-    el('a_sub').textContent = 'O/Corte no registrada: completa los datos de la planilla.';
-    el('a_bloque1').style.display = '';
-    el('a_ocnew').parentNode.style.display = (modoAud()==='oc') ? 'none' : '';
-    if(modoAud()==='oc'){ el('a_partida').value=''; }
-    estadosAud('AUDITORIA');
-    el('a_form').classList.remove('hide');
-    return;
-  }
-  AUD_EXISTE = res;
-  var h = res.historial, ult = res.actual;
-  AUD_ULTFECHA = T(ult.fecha);
-  var filas = h.map(function(e,i){
-    var cls = e.estado==='APROBADO' ? 'ap' : (e.estado==='RECHAZADO' ? 're' : 'sg');
-    return '<div class="ev"><span class="f">'+(e.fecha? e.fecha.split('-').reverse().join('/') : '—')+'</span>'+
-      '<span class="tag '+cls+'">'+esc(e.estado||'—')+'</span>'+
-      '<span class="d">'+esc([e.tipo==='SEGUIMIENTO'?'seguimiento':'', e.origen&&e.origen!=='S/O'?('origen '+e.origen):'',
-        e.modulo, e.obs||e.observaciones].filter(Boolean).join(' · '))+'</span>'+
+var OC_ACTUAL='', AUD_PREVIO=null;
+
+/* Un solo formulario: Grecia escribe todo de corrido. Al salir del campo O/Corte,
+   si ya existe se avisa y se completan los datos que ya se sabían. */
+function alSalirOC(){
+  var oc = T(el('a_ocnew').value);
+  if(!oc){ el('a_hist').innerHTML=''; AUD_PREVIO=null; AUD_EXISTE=null; return; }
+  el('a_ocnew').value = oc = oc.toUpperCase();
+  if(AUD_PREVIO && AUD_PREVIO.oc && AUD_PREVIO.oc.toUpperCase()===oc) return;
+  el('a_hist').innerHTML = '<div class="msg warn" style="margin-left:0"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Revisando si ya está registrada…</div>';
+  jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(oc), function(res){
+    if(!res || !res.ok){ el('a_hist').innerHTML=''; return; }
+    if(!res.existe){
+      AUD_PREVIO = null; AUD_EXISTE = null; OC_ACTUAL = '';
+      el('a_hist').innerHTML = '<div class="msg ok" style="margin-left:0">O/Corte nueva. Completa los datos de la planilla.</div>';
+      estadosAud('AUDITORIA');
+      return;
+    }
+    AUD_EXISTE = res; AUD_PREVIO = res.actual; OC_ACTUAL = oc;
+    AUD_ULTFECHA = T(res.actual.fecha);
+    pintarAvisoOC(res);
+    llenarDesde(res.actual);
+    estadosAud('TODOS');
+  }, function(){ el('a_hist').innerHTML=''; });
+}
+
+function pintarAvisoOC(res){
+  var h = res.historial, u = res.actual;
+  var cls = u.estado==='APROBADO' ? 'ap' : (u.estado==='RECHAZADO' ? 're' : 'sg');
+  var lineas = h.map(function(e,i){
+    var c2 = e.estado==='APROBADO' ? 'ap' : (e.estado==='RECHAZADO' ? 're' : 'sg');
+    return '<div class="ev"><span class="f">'+(e.fecha? iso2dmy(e.fecha) : '—')+'</span>'+
+      '<span class="tag '+c2+'">'+esc(e.estado||'—')+'</span>'+
+      '<span class="d">'+esc([e.modulo, e.origen&&e.origen!=='S/O'?('origen '+e.origen):'',
+        e.obs||e.observaciones].filter(Boolean).join(' · '))+'</span>'+
       '<button type="button" class="fix" data-i="'+i+'">Corregir</button></div>';
   }).join('');
-  c.innerHTML = '<div class="hist"><div class="hh">'+esc(ult.oc)+' · '+esc(ult.grupo)+' · '+esc(ult.color)+
-    ' · '+fn(ult.prendas)+' prendas</div><div class="hb">'+filas+'</div>'+
-    '<div class="ac">Estado actual: <b>'+esc(ult.estado)+'</b> · '+h.length+' registro(s)</div></div>';
+  el('a_hist').innerHTML =
+    '<div class="msg warn" style="margin-left:0"><b>Esta O/Corte ya está registrada</b> · '+
+      esc(u.grupo)+' · '+esc(u.color)+' · '+fn(u.prendas)+' prendas · '+
+      '<span class="tag '+cls+'">'+esc(u.estado)+'</span> ('+iso2dmy(u.fecha)+'). '+
+      'Los datos de la planilla se completaron solos: cambia únicamente lo que sea distinto.</div>'+
+    '<div class="hist" style="margin-top:10px"><div class="hh">Historial · '+h.length+' registro(s)</div>'+
+      '<div class="hb">'+lineas+'</div></div>';
   Array.prototype.forEach.call(el('a_hist').querySelectorAll('button.fix'), function(b){
     b.onclick = function(){ corregirAud(h[Number(b.getAttribute('data-i'))]); };
   });
-  el('a_titulo').textContent = 'Agregar seguimiento';
-  el('a_sub').textContent = 'Los datos de la planilla se conservan: solo registra la fecha, el estado nuevo y qué pasó.';
-  el('a_fh').textContent = 'Fecha del seguimiento';
-  el('a_bloque1').style.display = 'none';
-  el('a_ocnew').parentNode.style.display = 'none';
-  estadosAud('SEGUIMIENTO');
-  el('a_form').classList.remove('hide');
-  ['a_partida','a_estilo','a_grupo','a_cod','a_art','a_color'].forEach(function(id){
-    var m = {a_partida:'partida',a_estilo:'estilo',a_grupo:'grupo',a_cod:'cod_tela',
-             a_art:'articulo',a_color:'color'};
-    el(id).value = ult[m[id]] || '';
-  });
-  ponerCerrado('a_audt', ult.auditor_tint); ponerCerrado('a_auditor', ult.auditor);
-  el('a_prendas').value = ult.prendas || '';
-  el('a_merma').value = ult.merma || '';
-  el('a_desp').value = ult.despachadas || '';
-  el('a_modulo').value = ult.modulo || '';
-  el('a_origen').value = ult.origen || 'S/O';
-  el('a_obs').value = '';
-  el('a_obs2').value = '';
 }
 
-var OC_ACTUAL='';
-function modoAud(){ return T(el('a_modo').value)||'partida'; }
-
-function buscarOC(){
-  var q = T(el('a_oc').value);
-  if(!q){ msg('a_hist','err','Escribe la partida o la O/Corte.'); return; }
-  el('a_form').classList.add('hide'); OC_ACTUAL='';
-  el('a_hist').innerHTML = '<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
-  var modo = modoAud();
-  jsonp(API+'?action=buscar_oc&modo='+modo+'&q='+encodeURIComponent(q), function(res){
-    if(modo==='partida' && res && res.porPartida){ elegirOC(res, q); return; }
-    OC_ACTUAL = q.toUpperCase();
-    pintarHistorialAud(res);
-  }, function(){ msg('a_hist','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+function llenarDesde(u){
+  el('a_partida').value = u.partida || '';
+  el('a_estilo').value  = u.estilo || '';
+  el('a_grupo').value   = u.grupo || '';
+  el('a_cod').value     = u.cod_tela || '';
+  el('a_art').value     = u.articulo || '';
+  el('a_color').value   = u.color || '';
+  el('a_prendas').value = u.prendas || '';
+  el('a_merma').value   = u.merma || '';
+  el('a_desp').value    = u.despachadas || '';
+  ponerCerrado('a_audt', u.auditor_tint); ponerCerrado('a_auditor', u.auditor);
+  el('a_modulo').value  = u.modulo || '';
+  el('a_origen').value  = u.origen || 'S/O';
+  el('a_estado').value  = '';
+  el('a_obs').value = ''; el('a_obs2').value = '';
 }
 
-function elegirOC(res, partida){
-  if(!res.existe){
-    OC_ACTUAL='';
-    vaciarFormAud();
-    el('a_hist').innerHTML='<div class="msg ok">La partida <b>'+esc(partida)+'</b> no tiene O/Corte registrada. '+
-      'Completa los datos y escribe la O/Corte que corresponde.</div>';
-    el('a_titulo').textContent='Nueva auditoría';
-    el('a_sub').textContent='Partida sin registros: completa los datos de la planilla.';
-    el('a_bloque1').style.display='';
-    el('a_form').classList.remove('hide');
-    el('a_partida').value=partida;
-    el('a_ocnew').parentNode.style.display='';
-    el('a_ocnew').value='';
-    estadosAud('AUDITORIA');
-    AUD_EXISTE=null;
-    return;
-  }
-  var f = res.ocs.map(function(o){
-    var cls = o.estado==='APROBADO'?'ap':(o.estado==='RECHAZADO'?'re':'sg');
-    return '<div class="ev"><span class="f">'+(o.fecha?o.fecha.split('-').reverse().join('/'):'—')+'</span>'+
-      '<button class="btn mini sec" type="button" data-oc="'+esc(o.oc)+'">'+esc(o.oc)+'</button>'+
-      '<span class="tag '+cls+'">'+esc(o.estado)+'</span>'+
-      '<span class="d">'+esc([o.grupo,o.color,fn(o.prendas)+' prendas'].filter(Boolean).join(' · '))+'</span></div>';
-  }).join('');
-  el('a_hist').innerHTML='<div class="hist"><div class="hh">Partida '+esc(partida)+' · '+res.ocs.length+
-    ' O/Corte registrada(s)</div><div class="hb">'+f+'</div>'+
-    '<div class="ac">Elige la O/Corte para ver su historial y agregar un seguimiento.</div></div>';
-  el('a_form').classList.add('hide');
-  Array.prototype.forEach.call(el('a_hist').querySelectorAll('button[data-oc]'), function(b){
-    b.onclick = function(){
-      var oc=b.getAttribute('data-oc');
-      OC_ACTUAL=oc.toUpperCase();
-      el('a_hist').innerHTML='<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
-      jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(oc), pintarHistorialAud,
-        function(){ msg('a_hist','err','No se pudo consultar el tablero.'); });
-    };
+/* qué campos de la planilla cambiaron respecto de lo registrado */
+var CAMPOS_PLANILLA = [
+  ['a_partida','partida','Partida'], ['a_estilo','estilo','Estilo'], ['a_grupo','grupo','Grupo textil'],
+  ['a_cod','cod_tela','Código de tela'], ['a_art','articulo','Artículo'], ['a_color','color','Color'],
+  ['a_prendas','prendas','Total prendas'], ['a_merma','merma','Merma'],
+  ['a_desp','despachadas','Prendas despachadas'], ['a_modulo','modulo','Módulo / Taller']
+];
+function cambiosPlanilla(){
+  if(!AUD_PREVIO) return [];
+  var out = [];
+  CAMPOS_PLANILLA.forEach(function(c){
+    var ahora = T(el(c[0]).value), antes = T(AUD_PREVIO[c[1]]);
+    var num = ['prendas','merma','despachadas'].indexOf(c[1]) >= 0;
+    if(num){ if(N(ahora) !== N(antes)) out.push({etq:c[2], antes:fn(N(antes)), ahora:fn(N(ahora))}); }
+    else if(ahora.toUpperCase() !== antes.toUpperCase())
+      out.push({etq:c[2], antes:antes||'(vacío)', ahora:ahora||'(vacío)'});
   });
+  return out;
 }
 
 function guardarAud(){
   if(!pideUsuario('a_salida')) return;
-  var oc = OC_ACTUAL || T(el('a_ocnew').value) || (modoAud()==='oc' ? T(el('a_oc').value) : '');
-  if(!oc){ msg('a_salida','err','Falta la O/Corte: escríbela en el formulario.'); el('a_ocnew').focus(); return; }
+  var oc = T(el('a_ocnew').value).toUpperCase();
+  if(!oc){ msg('a_salida','err','Falta la O/Corte.'); el('a_ocnew').focus(); return; }
   var estado = T(el('a_estado').value);
   if(!estado){ msg('a_salida','err','Elige el estado.'); return; }
-  var tipo = AUD_EXISTE ? 'SEGUIMIENTO' : 'AUDITORIA';
   var fA = fechaValida('a_fecha','a_salida'); if(!fA) return;
-  if(AUD_CORRIGE){
-    var ra = {fecha:fA, tipo_reg:AUD_CORRIGE.tipo, oc:oc, partida:T(el('a_partida').value),
-      estilo:T(el('a_estilo').value), grupo:UP(el('a_grupo').value), cod_tela:UP(el('a_cod').value),
-      articulo:T(el('a_art').value), color:UP(el('a_color').value), prendas:N(el('a_prendas').value),
-      merma:N(el('a_merma').value), despachadas:N(el('a_desp').value),
-      auditor_tint:valorCerrado('a_audt'), modulo:T(el('a_modulo').value), auditor:valorCerrado('a_auditor'),
-      origen:T(el('a_origen').value)||'S/O', estado:estado, obs:T(el('a_obs').value),
-      observaciones:T(el('a_obs2').value)};
-    el('a_guardar').disabled = true; el('a_guardar').innerHTML = '<span class="spin"></span>Corrigiendo…';
-    enviar({token:TOKEN, tabla:'CORREGIR', destino:'CORTE_AUD', fila:AUD_CORRIGE.fila,
-      usuario:usuario(), registro:ra}, function(){
-      setTimeout(function(){
-        AUD_CORRIGE = null;
-        el('a_guardar').disabled = false; el('a_guardar').textContent = 'Guardar';
-        el('a_guardar').className = 'btn';
-        if(FVISIBLE.a) verPorEstado('a');
-        jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(oc), function(res){
-          if(res && res.ok && res.existe){ pintarHistorialAud(res);
-            msg('a_salida','ok','<b>Corregido.</b> '+esc(oc)+' quedó con estado actual <b>'+
-              esc(res.actual.estado)+'</b>.');
-          } else { msg('a_salida','err','No se pudo confirmar la corrección.'); }
-        }, function(){ msg('a_salida','err','Sin respuesta del tablero.'); });
-      }, 1600);
-    });
-    return;
-  }
-  if(AUD_ULTFECHA && fA < AUD_ULTFECHA){
-    var uD = iso2dmy(AUD_ULTFECHA), nD = iso2dmy(fA);
-    if(!confirm('El último registro de esta O/Corte es del '+uD+', y estás registrando uno del '+nD+
-      '.\n\nComo es anterior, el estado actual va a seguir siendo el del '+uD+
-      ' y este registro quedará solo en el historial.\n\n¿Es correcta la fecha '+nD+'?')) {
-      el('a_fecha').focus(); return;
-    }
-  }
-  var r = {tipo_reg:tipo, oc:oc, fecha:fA,
-    partida:T(el('a_partida').value), estilo:T(el('a_estilo').value), grupo:UP(el('a_grupo').value),
-    cod_tela:UP(el('a_cod').value), articulo:T(el('a_art').value), color:UP(el('a_color').value),
-    prendas:N(el('a_prendas').value), merma:N(el('a_merma').value), despachadas:N(el('a_desp').value),
-    auditor_tint:valorCerrado('a_audt'), modulo:T(el('a_modulo').value), auditor:valorCerrado('a_auditor'),
+
+  var r = {oc:oc, fecha:fA, partida:T(el('a_partida').value), estilo:T(el('a_estilo').value),
+    grupo:UP(el('a_grupo').value), cod_tela:UP(el('a_cod').value), articulo:T(el('a_art').value),
+    color:UP(el('a_color').value), prendas:N(el('a_prendas').value), merma:N(el('a_merma').value),
+    despachadas:N(el('a_desp').value), auditor_tint:valorCerrado('a_audt'),
+    modulo:T(el('a_modulo').value), auditor:valorCerrado('a_auditor'),
     origen:T(el('a_origen').value)||'S/O', estado:estado,
     obs:T(el('a_obs').value), observaciones:T(el('a_obs2').value)};
 
+  /* corrección explícita desde el historial */
+  if(AUD_CORRIGE){ enviarAud(r, 'CORREGIR'); return; }
+
+  /* O/Corte nueva: se registra sin preguntar */
+  if(!AUD_PREVIO){ r.tipo_reg='AUDITORIA'; enviarAud(r, 'ALTA'); return; }
+
+  /* ya existe: si solo cambió el estado, es un seguimiento y tampoco se pregunta */
+  var difs = cambiosPlanilla();
+  if(!difs.length){ r.tipo_reg='SEGUIMIENTO'; enviarAud(r, 'SEGUIMIENTO'); return; }
+
+  /* cambiaron datos de la planilla: aquí sí decide Grecia */
+  preguntarQueEs(r, difs);
+}
+
+function preguntarQueEs(r, difs){
+  var lista = difs.map(function(d){
+    return '<li><b>'+esc(d.etq)+':</b> '+esc(d.antes)+' <span style="color:#5F726C">→</span> <b>'+esc(d.ahora)+'</b></li>';
+  }).join('');
+  el('a_salida').innerHTML =
+    '<div class="msg warn"><b>Además del estado, cambiaste datos de la planilla:</b>'+
+    '<ul>'+lista+'</ul>'+
+    'Si el dato anterior estaba mal, corrige el registro. Si de verdad es otro corte, se guarda aparte.'+
+    '<div style="margin-top:12px">'+
+      '<button class="btn" type="button" id="a_qcorr">Corregir el registro anterior</button>'+
+      '<button class="btn sec" type="button" id="a_qnuevo" style="margin-left:8px">Es otro corte, guardar aparte</button>'+
+      '<button class="btn sec" type="button" id="a_qcancel" style="margin-left:8px">Cancelar</button>'+
+    '</div></div>';
+  el('a_qcorr').onclick = function(){
+    AUD_CORRIGE = AUD_PREVIO; r.tipo_reg = AUD_PREVIO.tipo || 'AUDITORIA'; enviarAud(r, 'CORREGIR'); };
+  el('a_qnuevo').onclick = function(){ r.tipo_reg='AUDITORIA'; enviarAud(r, 'ALTA'); };
+  el('a_qcancel').onclick = function(){ el('a_salida').innerHTML=''; };
+}
+
+function enviarAud(r, modo){
+  var oc = r.oc;
   el('a_guardar').disabled = true;
   el('a_guardar').innerHTML = '<span class="spin"></span>Guardando…';
-  enviar({token:TOKEN, tabla:'AUD_FORM', usuario:usuario(), registro:r}, function(){
-    if(FVISIBLE.a) verPorEstado('a');   /* la lista por estado se recarga sola */
+  var payload = (modo==='CORREGIR')
+    ? {token:TOKEN, tabla:'CORREGIR', destino:'CORTE_AUD', fila:(AUD_CORRIGE&&AUD_CORRIGE.fila)||0,
+       usuario:usuario(), registro:r}
+    : {token:TOKEN, tabla:'AUD_FORM', usuario:usuario(), registro:r};
+  enviar(payload, function(){
+    if(FVISIBLE.a) verPorEstado('a');
     setTimeout(function(){
       jsonp(API+'?action=buscar_oc&q='+encodeURIComponent(oc), function(res){
         el('a_guardar').disabled = false; el('a_guardar').innerHTML = 'Guardar';
+        AUD_CORRIGE = null;
         if(res && res.ok && res.existe){
-          pintarHistorialAud(res);
-          msg('a_salida','ok','<b>Guardado.</b> '+esc(oc)+' quedó con '+res.historial.length+
-            ' registro(s). Estado actual: <b>'+esc(res.actual.estado)+'</b>.');
-          if(r.cod_tela && r.articulo && !TELAMAP[r.cod_tela]){ TELAMAP[r.cod_tela]=r.articulo;
-            TELAS.push({cod:r.cod_tela,desc:r.articulo}); datalist('dl_telas',TELAS.map(function(t){return t.cod;})); }
-          sumarACatalogo('AUDITOR', r.auditor); sumarACatalogo('AUDITOR', r.auditor_tint);
-        }else{
-          msg('a_salida','err','No se pudo confirmar el guardado. Vuelve a intentar.');
+          AUD_EXISTE = res; AUD_PREVIO = res.actual; AUD_ULTFECHA = T(res.actual.fecha);
+          pintarAvisoOC(res);
+          var txt = modo==='CORREGIR' ? 'Corregido' : (modo==='SEGUIMIENTO' ? 'Seguimiento agregado' : 'Registrado');
+          msg('a_salida','ok','<b>'+txt+'.</b> '+esc(oc)+' quedó con estado actual <b>'+
+            esc(res.actual.estado)+'</b> · '+res.historial.length+' registro(s).');
+        } else {
+          msg('a_salida','err','No se pudo confirmar el guardado.');
         }
       }, function(){ el('a_guardar').disabled=false; el('a_guardar').innerHTML='Guardar';
-        msg('a_salida','err','Sin respuesta del tablero. Revisa la conexión.'); });
-    }, 1500);
+        msg('a_salida','err','Sin respuesta del tablero.'); });
+    }, 1600);
   });
 }
 
 function limpiarAud(){
-  OC_ACTUAL=''; AUD_CORRIGE = null;
+  OC_ACTUAL=''; AUD_CORRIGE = null; AUD_PREVIO = null; AUD_EXISTE = null; AUD_ULTFECHA='';
+  estadosAud('AUDITORIA');
   el('a_guardar').textContent = 'Guardar'; el('a_guardar').className = 'btn';
-  ['a_oc','a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma','a_desp',
+  ['a_ocnew','a_partida','a_estilo','a_grupo','a_cod','a_art','a_color','a_prendas','a_merma','a_desp',
    'a_obs','a_obs2'].forEach(function(id){ el(id).value=''; });
   ['a_audt','a_auditor'].forEach(function(id){ ponerCerrado(id,''); });
   el('a_fecha').value = hoyDMY();
@@ -2087,7 +2209,7 @@ function guardarDef(){
   enviar({token:TOKEN, tabla:'DEFTEX_FORM', usuario:usuario(), registro:r, detalle:det}, function(){
     setTimeout(function(){
       el('d_guardar').disabled = false; el('d_guardar').innerHTML = 'Guardar';
-      TINT_TODO = null;
+      REP_LISTAS = null;
       msg('d_salida','ok','<b>Guardado.</b> '+fn(totalEnv)+' defectos en '+det.length+
         ' tipo(s) · '+(totalEnv/prendas*100).toFixed(2)+'% de rechazo sobre '+fn(prendas)+' prendas.');
       limpiarDef(true);
@@ -2126,6 +2248,8 @@ function corregirTint(e){
   el('t_estado').value = e.estado || '';
   el('t_obs').value = e.obs || '';
   ponerCerrado('t_origen', e.origen && e.origen!=='S/ORIGEN' ? e.origen : '');
+  el('t_fam1').value = e.familia1 || ''; llenarDefectos('1'); el('t_def1').value = e.defecto1 || '';
+  el('t_fam2').value = e.familia2 || ''; llenarDefectos('2'); el('t_def2').value = e.defecto2 || '';
   el('t_guardar').textContent = 'Guardar corrección';
   el('t_guardar').className = 'btn warn';
   avisoCorreccion('t_salida', 'Al guardar se reemplaza lo que decía esa revisión; el valor anterior queda en el registro de cambios.',
@@ -2137,8 +2261,6 @@ function corregirAud(e){
   AUD_CORRIGE = e;
   el('a_titulo').textContent = 'Corregir el registro del ' + iso2dmy(e.fecha);
   el('a_sub').textContent = 'Se reescribe ese registro, no se crea uno nuevo. Úsalo solo para arreglar lo que se escribió mal.';
-  el('a_bloque1').style.display = '';
-  el('a_ocnew').parentNode.style.display = '';
   el('a_fecha').value = iso2dmy(e.fecha);
   el('a_ocnew').value = e.oc || '';
   el('a_partida').value = e.partida || '';
@@ -2161,7 +2283,7 @@ function corregirAud(e){
   el('a_guardar').textContent = 'Guardar corrección';
   el('a_guardar').className = 'btn warn';
   avisoCorreccion('a_salida', 'Al guardar se reemplaza lo que decía ese registro; el valor anterior queda en el registro de cambios.',
-    function(){ AUD_CORRIGE = null; buscarOC(); });
+    function(){ AUD_CORRIGE = null; el('a_salida').innerHTML=''; alSalirOC(); });
   el('a_form').classList.remove('hide');
 }
 
@@ -2228,12 +2350,14 @@ function guardarTint(){
     var rc = {fecha:fT, tintoreria:valorCerrado('t_tint'), partida:p, articulo:T(el('t_art').value),
       grupo:UP(el('t_grupo').value), color:UP(el('t_color').value), peso:N(el('t_peso').value),
       auditores:valorCerrado('t_auditores'), estado:estado, obs:T(el('t_obs').value),
-      origen:valorCerrado('t_origen')};
+      origen:valorCerrado('t_origen'),
+      familia1:T(el('t_fam1').value), defecto1:T(el('t_def1').value),
+      familia2:T(el('t_fam2').value), defecto2:T(el('t_def2').value)};
     el('t_guardar').disabled = true; el('t_guardar').innerHTML = '<span class="spin"></span>Corrigiendo…';
     enviar({token:TOKEN, tabla:'CORREGIR', destino:'TINT_DIARIO', id:TIN_CORRIGE.id,
       usuario:usuario(), registro:rc}, function(){
       setTimeout(function(){
-        TIN_CORRIGE = null; TINT_TODO = null;
+        TIN_CORRIGE = null; REP_LISTAS = null;
         el('t_guardar').disabled = false; el('t_guardar').textContent = 'Guardar registro';
         el('t_guardar').className = 'btn';
         if(FVISIBLE.t) verPorEstado('t');
@@ -2258,11 +2382,13 @@ function guardarTint(){
   var r = {fecha:fT, tintoreria:valorCerrado('t_tint'), partida:p,
     articulo:T(el('t_art').value), grupo:UP(el('t_grupo').value), color:UP(el('t_color').value),
     peso:N(el('t_peso').value), auditores:valorCerrado('t_auditores'), estado:estado,
-    obs:T(el('t_obs').value), origen:valorCerrado('t_origen')};
+    obs:T(el('t_obs').value), origen:valorCerrado('t_origen'),
+    familia1:T(el('t_fam1').value), defecto1:T(el('t_def1').value),
+    familia2:T(el('t_fam2').value), defecto2:T(el('t_def2').value)};
   el('t_guardar').disabled = true;
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
-    TINT_TODO = null;                  /* el reporte vuelve a traer los datos */
+    REP_LISTAS = null;                  /* el reporte vuelve a traer los datos */
     if(FVISIBLE.t) verPorEstado('t');  /* y la lista por estado se recarga sola */
     sumarACatalogo('TINTORERIA', r.tintoreria);
     sumarACatalogo('AUDITOR', r.auditores);
@@ -2288,6 +2414,7 @@ function limpiarTint(){
   TIN_CORRIGE = null;
   el('t_guardar').textContent = 'Guardar registro'; el('t_guardar').className = 'btn';
   ['t_tint','t_auditores','t_origen'].forEach(function(id){ ponerCerrado(id,''); });
+  ['1','2'].forEach(function(n){ el('t_fam'+n).value=''; llenarDefectos(n); });
   ['t_partida','t_art','t_grupo','t_color','t_peso','t_obs']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value=hoyDMY();
@@ -2350,26 +2477,9 @@ ligarTela('d_cod','d_art',null);
 
 el('a_fver').onclick = function(){ verPorEstado('a'); };
 el('t_fver').onclick = function(){ verPorEstado('t'); };
-el('a_modo').onchange = function(){
-  var m=modoAud();
-  el('a_lbl').innerHTML = (m==='partida'?'Partida':'O/Corte')+' <span class="req">*</span>';
-  el('a_oc').setAttribute('list', m==='partida'?'dl_pcorte':'dl_ocs');
-  el('a_oc').placeholder = m==='partida'?'25-546068':'50166-4';
-  el('a_hint').textContent = 'Al escribir aparecen las '+(m==='partida'?'partidas':'O/Corte')+' ya registradas';
-  el('a_oc').value=''; el('a_hist').innerHTML=''; el('a_form').classList.add('hide'); OC_ACTUAL='';
-};
-el('a_oc').oninput = function(){
-  if(el('a_form').className.indexOf('hide')<0){
-    el('a_form').classList.add('hide'); el('a_hist').innerHTML=''; OC_ACTUAL=''; AUD_EXISTE=null;
-  }
-};
-el('t_partida').oninput = function(){
-  if(el('t_form').className.indexOf('hide')<0){
-    el('t_form').classList.add('hide'); el('t_hist').innerHTML=''; TIN_EXISTE=null;
-  }
-};
-el('a_buscar').onclick = buscarOC;
-el('a_oc').onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); buscarOC(); } };
+el('a_ocnew').onblur = alSalirOC;
+el('a_ocnew').onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); alSalirOC(); } };
+el('a_limpiar2').onclick = limpiarAud;
 el('a_guardar').onclick = guardarAud;
 el('a_limpiar').onclick = limpiarAud;
 
@@ -2396,6 +2506,23 @@ ligarFecha('r_hasta', verReporte);
 el('r_ver').onclick = verReporte;
 el('r_hoy').onclick = hoyReporte;
 el('r_sem').onclick = semanaReporte;
+el('r_todo').onclick = todoReporte;
+ligarCalendario('r_desde'); ligarCalendario('r_hasta');
+['r_ftint','r_festado'].forEach(function(id){
+  var e2=el(id); if(e2) e2.onchange = verReporte;
+});
+/* al escribir se espera a que termine, para no consultar en cada tecla */
+['r_fpartida','r_fgrupo','r_fcolor'].forEach(function(id){
+  var e3=el(id); if(!e3) return;
+  e3.oninput = function(){
+    clearTimeout(window['_t_'+id]);
+    window['_t_'+id] = setTimeout(verReporte, 450);
+  };
+});
+el('r_limpiar').onclick = function(){
+  ['r_ftint','r_festado','r_fgrupo','r_fcolor','r_fpartida'].forEach(function(id){ el(id).value=''; });
+  verReporte();
+};
 el('r_print').onclick = function(){ window.print(); };
 el('r_copiar').onclick = copiarTabla;
 

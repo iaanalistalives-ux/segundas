@@ -92,6 +92,13 @@
   .flist .acc select,.flist .acc input{font-family:inherit;font-size:12.5px;border:1.5px solid var(--warm);
     border-radius:6px;padding:6px 9px;}
   .flist .acc input.obs{flex:1;min-width:180px;}
+  .fecha{position:relative;display:flex;align-items:center;}
+  .fecha input[type=text]{padding-right:38px;}
+  .fecha .calbtn{position:absolute;right:6px;width:26px;height:26px;display:flex;align-items:center;
+    justify-content:center;font-size:15px;cursor:pointer;border-radius:6px;opacity:.65;}
+  .fecha .calbtn:hover{opacity:1;background:var(--warm-light);}
+  .fecha .calbtn input[type=date]{position:absolute;inset:0;opacity:0;cursor:pointer;
+    width:100%;height:100%;border:none;padding:0;}
   #v_rep table{width:100%;border-collapse:collapse;font-size:12px;}
   #v_rep th{background:var(--warm-light);color:var(--stone);font-weight:700;padding:6px 8px;
     border:1px solid var(--warm);text-align:left;white-space:nowrap;}
@@ -367,6 +374,10 @@
           <div><label>Auditores</label><select id="t_auditores"></select>
             <input type="text" id="t_auditores_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
           <div><label>Estado <span class="req">*</span></label><select id="t_estado"></select></div>
+          <div><label>Familia del defecto</label><select id="t_fam1"></select></div>
+          <div style="grid-column:span 2"><label>Defecto</label><select id="t_def1"></select></div>
+          <div><label>Segunda familia <span style="font-weight:400;color:var(--stone)">(opcional)</span></label><select id="t_fam2"></select></div>
+          <div style="grid-column:span 2"><label>Segundo defecto</label><select id="t_def2"></select></div>
           <div><label>Código de origen del defecto</label><select id="t_origen"></select>
             <input type="text" id="t_origen_otra" placeholder="Escríbelo" autocomplete="off" style="display:none;margin-top:6px"></div>
         </div>
@@ -422,14 +433,28 @@
         <h2>Período</h2>
         <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar.</div>
         <div class="grid">
-          <div><label>Desde</label><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
-          <div><label>Hasta</label><input type="text" id="r_hasta" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off"></div>
+          <div><label>Desde</label>
+            <div class="fecha"><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="r_desde_cal"></span></div></div>
+          <div><label>Hasta</label>
+            <div class="fecha"><input type="text" id="r_hasta" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="r_hasta_cal"></span></div></div>
           <div style="align-self:end">
             <button class="btn" type="button" id="r_ver">Ver</button>
             <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
             <button class="btn sec" type="button" id="r_sem" style="margin-left:6px">Últimos 7 días</button>
+            <button class="btn sec" type="button" id="r_todo" style="margin-left:6px">Todo el historial</button>
           </div>
         </div>
+        <div class="grid" style="margin-top:14px">
+          <div><label>Tintorería</label><select id="r_ftint"><option value="">Todas</option></select></div>
+          <div><label>Grupo</label><input type="text" id="r_fgrupo" placeholder="Ej: PAK-1 o THY" autocomplete="off"><div class="hint" id="r_hgrupo"></div></div>
+          <div><label>Color</label><input type="text" id="r_fcolor" placeholder="Ej: NAVY o BLACK" autocomplete="off"><div class="hint" id="r_hcolor"></div></div>
+          <div><label>Partida</label><input type="text" id="r_fpartida" placeholder="Número o parte del número" autocomplete="off"></div>
+          <div><label>Estado</label><select id="r_festado"><option value="">Todos</option></select></div>
+          <div style="align-self:end"><button class="btn sec" type="button" id="r_limpiar">Quitar filtros</button></div>
+        </div>
+
         <div style="margin-top:12px">
           <button class="btn sec" type="button" id="r_print">Imprimir</button>
           <button class="btn sec" type="button" id="r_copiar" style="margin-left:8px">Copiar la tabla</button>
@@ -485,7 +510,7 @@
 /* ============================================================
    CONFIGURACIÓN
    ============================================================ */
-var API   = 'https://script.google.com/macros/s/AKfycbzZpAse_qhFJGCjlpWpBHNDiMdCcM9GfqQO1LcP16Kx4z6R1FMzbfqV6YDI9jYuM60v/exec';
+var API   = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var TOKEN = 'C0196';
 
 var MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SETIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
@@ -1309,6 +1334,7 @@ function verDashboard(archivo){
 }
 
 function irA(vista, tipo){
+  if(vista==='v_rep') setTimeout(function(){ cargarListasRep(function(){}); }, 60);
   Array.prototype.forEach.call(document.querySelectorAll('.vista'), function(v){ v.classList.remove('active'); });
   var v = el(vista); if(v) v.classList.add('active');
   if(vista==='v_carga' && tipo){
@@ -1361,6 +1387,20 @@ function iso2dmy(v){ var s2=T(v); return /^\d{4}-\d{2}-\d{2}/.test(s2)
   ? s2.substring(0,10).split('-').reverse().join('/') : s2; }
 /* los campos de fecha: al entrar se selecciona todo (para escribir encima sin borrar),
    se ponen las barras solas y Enter confirma */
+/* El calendario nativo escribe siempre en dd/mm/aaaa sobre el campo de texto. */
+function ligarCalendario(id){
+  var cal = el(id+'_cal'), txt = el(id);
+  if(!cal || !txt) return;
+  cal.onchange = function(){
+    if(!cal.value) return;
+    txt.value = iso2dmy(cal.value);
+    verReporte();
+  };
+  txt.addEventListener('change', function(){
+    var v = dmy2iso(txt.value); if(v) cal.value = v;
+  });
+}
+
 function ligarFecha(id, alEnter){
   var c = el(id); if(!c) return;
   c.onfocus = function(){ try{ c.select(); }catch(e){} };
@@ -1480,6 +1520,35 @@ function ponerTint(id, valor){
   s2.value = v;
 }
 
+/* Codificación de defectos: la familia filtra la lista de defectos. */
+var DEFTINT = {};
+function armarDefectos(){
+  DEFTINT = {};
+  (CAT.DEFECTO_TINT || []).forEach(function(v){
+    var p = String(v).split('|');
+    if(p.length < 3) return;
+    var cod = T(p[0]).toUpperCase(), area = T(p[1]).toUpperCase(), def = T(p[2]).toUpperCase();
+    if(!DEFTINT[cod]) DEFTINT[cod] = {area:area, defs:[]};
+    if(DEFTINT[cod].defs.indexOf(def) < 0) DEFTINT[cod].defs.push(def);
+  });
+  ['1','2'].forEach(function(n){
+    var sf = el('t_fam'+n); if(!sf) return;
+    sf.innerHTML = '<option value="">— ninguno —</option>' +
+      Object.keys(DEFTINT).map(function(c){
+        return '<option value="'+c+'">'+esc(DEFTINT[c].area)+' ('+c+')</option>'; }).join('');
+    sf.onchange = function(){ llenarDefectos(n); };
+    llenarDefectos(n);
+  });
+}
+function llenarDefectos(n){
+  var cod = T(el('t_fam'+n).value), sd = el('t_def'+n);
+  if(!sd) return;
+  var lista = (DEFTINT[cod] && DEFTINT[cod].defs) || [];
+  sd.innerHTML = '<option value="">'+(cod?'— elegir —':'elige primero la familia')+'</option>' +
+    lista.map(function(d){ return '<option value="'+d.replace(/"/g,'&quot;')+'">'+esc(d)+'</option>'; }).join('');
+  sd.disabled = !cod;
+}
+
 function cargarCatalogos(){
   jsonp(API+'?action=catalogos', function(res){
     if(!res || !res.ok) return;
@@ -1489,6 +1558,7 @@ function cargarCatalogos(){
     TELAS.forEach(function(t){ TELAMAP[String(t.cod).toUpperCase()] = t.desc; });
     datalist('dl_telas', TELAS.map(function(t){ return t.cod; }));
     pintarCerrados();
+    armarDefectos();
     opciones('a_modulo', CAT.MODULO_TALLER || [], true);
     opciones('a_origen', CAT.ORIGEN_CORTE || ['S/O','TEXTIL','CORTE'], false);
     opciones('t_estado', CAT.ESTADO_TINT || [], true);
@@ -1587,60 +1657,104 @@ function cargarIndices(){
 }
 
 /* ---------------- reporte de partidas revisadas ---------------- */
-var TINT_TODO = null;
+/* El filtrado ocurre en el tablero: traer las 2,400 revisiones completas en cada
+   consulta dejaba la página colgada. Aquí solo se guardan los valores de los desplegables. */
+var REP_LISTAS = null, REP_PIDE = 0;
 
-function cargarTint(fn2){
-  if(TINT_TODO){ fn2(); return; }
-  msg('r_salida','warn','<span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Trayendo las revisiones…');
-  jsonp(API+'?action=read_tint', function(res){
-    TINT_TODO = (res&&res.ok) ? (res.filas||[]) : [];
-    el('r_salida').innerHTML='';
-    fn2();
-  }, function(){ msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+function cargarListasRep(luego){
+  if(REP_LISTAS){ luego(); return; }
+  jsonp(API+'?action=rep_listas', function(res){
+    REP_LISTAS = (res && res.ok) ? res : {tintorerias:[],grupos:[],colores:[],estados:[]};
+    pintarListasRep();
+    luego();
+  }, function(){
+    REP_LISTAS={tintorerias:[],grupos:[],colores:[],estados:[]};
+    pintarListasRep();
+    msg('r_salida','err','No se pudieron traer las listas de filtros. Revisa la conexión y vuelve a dar Ver.');
+    luego();
+  });
+}
+
+function pintarListasRep(){
+  if(!REP_LISTAS) return;
+  function opts(id, valores, etq){
+    var sel=el(id); if(!sel) return;
+    var prev=sel.value;
+    sel.innerHTML='<option value="">'+etq+'</option>'+
+      (valores||[]).map(function(v){ return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join('');
+    if(prev) sel.value=prev;
+  }
+  opts('r_ftint',  REP_LISTAS.tintorerias, 'Todas');
+  opts('r_festado',REP_LISTAS.estados,     'Todos');
+  /* grupo y color son cientos: se buscan escribiendo parte del nombre */
+  var hg=el('r_hgrupo'), hc=el('r_hcolor');
+  if(hg) hg.textContent = REP_LISTAS.n_grupos ? 'Escribe parte del nombre · hay '+fn(REP_LISTAS.n_grupos)+' grupos' : '';
+  if(hc) hc.textContent = REP_LISTAS.n_colores ? 'Escribe parte del nombre · hay '+fn(REP_LISTAS.n_colores)+' colores' : '';
+}
+function textoFiltro(){
+  var p=[];
+  if(T(el('r_ftint').value))    p.push('tintorería '+T(el('r_ftint').value));
+  if(T(el('r_fgrupo').value))   p.push('grupo que contenga «'+UP(el('r_fgrupo').value)+'»');
+  if(T(el('r_fcolor').value))   p.push('color que contenga «'+UP(el('r_fcolor').value)+'»');
+  if(T(el('r_festado').value))  p.push('estado '+T(el('r_festado').value));
+  if(T(el('r_fpartida').value)) p.push('partida que contenga «'+UP(el('r_fpartida').value)+'»');
+  return p.length ? ' · filtrado por '+p.join(', ') : '';
+}
+function hayFiltro(){ return textoFiltro() !== ''; }
+
+function pintarReporte(res, d1, d2){
+  var f = res.filas || [];
+  el('r_salida').innerHTML='';
+  el('r_titulo').textContent = 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2)+
+    ' · '+f.length+' revisión(es)'+textoFiltro();
+  if(!f.length){
+    el('r_kg').innerHTML=''; el('r_res').innerHTML='';
+    el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
+      (hayFiltro()?' con esos filtros':'')+' en esas fechas.</td></tr>';
+    return;
+  }
+  var kg=res.kg||{}, kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
+  el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
+    kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
+    '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(res.total||0)+'</b></td></tr>';
+  var est=res.estados||{}, ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
+  el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
+    ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
+    '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(res.partidas||0)+'</b></td></tr>';
+  el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
+    '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
+    f.map(function(r){
+      return '<tr><td>'+esc(iso2dmy(r.fecha))+'</td><td>'+esc(r.tintoreria)+'</td>'+
+        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
+        '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
+        '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
+    }).join('');
 }
 
 function verReporte(){
-  cargarTint(function(){
+  cargarListasRep(function(){
     var d1=dmy2iso(el('r_desde').value), d2=dmy2iso(el('r_hasta').value);
     if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
     if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
-    var f = TINT_TODO.filter(function(r){ return r.fecha && r.fecha>=d1 && r.fecha<=d2; })
-      .sort(function(a,b){ return (a.fecha<b.fecha?-1:(a.fecha>b.fecha?1:
-        (T(a.tintoreria)<T(b.tintoreria)?-1:1))); });
-
-    el('r_bloque').style.display = 'block';
-    el('r_titulo').textContent = 'Del '+d1.split('-').reverse().join('/')+' al '+d2.split('-').reverse().join('/')+
-      ' · '+f.length+' revisión(es)';
-
-    if(!f.length){
-      el('r_kg').innerHTML=''; el('r_res').innerHTML='';
-      el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones registradas en esas fechas.</td></tr>';
-      return;
-    }
-
-    var kg={}, tot=0;
-    f.forEach(function(r){ var k=T(r.tintoreria)||'SIN TINTORERÍA';
-      kg[k]=(kg[k]||0)+N(r.peso); tot+=N(r.peso); });
-    var kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
-    el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
-      kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
-      '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(tot)+'</b></td></tr>';
-
-    var est={}; f.forEach(function(r){ var e=T(r.estado)||'SIN ESTADO'; est[e]=(est[e]||0)+1; });
-    var ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
-    var pa={}; f.forEach(function(r){ pa[T(r.partida).toUpperCase()]=1; });
-    el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
-      ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
-      '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(Object.keys(pa).length)+'</b></td></tr>';
-
-    el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
-      '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
-      f.map(function(r){
-        return '<tr><td>'+esc(T(r.fecha).split('-').reverse().join('/'))+'</td>'+
-          '<td>'+esc(r.tintoreria)+'</td><td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
-          '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
-          '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
-      }).join('');
+    var url = API+'?action=rep_datos&desde='+d1+'&hasta='+d2+
+      '&tint='+encodeURIComponent(T(el('r_ftint').value))+
+      '&grupo='+encodeURIComponent(UP(el('r_fgrupo').value))+
+      '&color='+encodeURIComponent(UP(el('r_fcolor').value))+
+      '&estado='+encodeURIComponent(T(el('r_festado').value))+
+      '&partida='+encodeURIComponent(UP(el('r_fpartida').value));
+    var pide = ++REP_PIDE;
+    el('r_bloque').style.display='block';
+    el('r_titulo').innerHTML='<span class="spin"></span>Buscando…';
+    el('r_kg').innerHTML=''; el('r_res').innerHTML=''; el('r_tabla').innerHTML='';
+    jsonp(url, function(res){
+      if(pide !== REP_PIDE) return;
+      if(!res || !res.ok){ msg('r_salida','err','No se pudo consultar el tablero.'); return; }
+      pintarReporte(res, d1, d2);
+    }, function(){
+      if(pide !== REP_PIDE) return;
+      msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.');
+      el('r_titulo').textContent='';
+    });
   });
 }
 
@@ -1659,6 +1773,16 @@ function copiarTabla(){
 function hoyReporte(){
   var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
 }
+function todoReporte(){
+  cargarListasRep(function(){
+    if(REP_LISTAS && REP_LISTAS.desde){
+      el('r_desde').value=iso2dmy(REP_LISTAS.desde);
+      el('r_hasta').value=iso2dmy(REP_LISTAS.hasta);
+    }
+    verReporte();
+  });
+}
+
 function semanaReporte(){
   var d=new Date(), a=new Date(d.getTime()-6*86400000);
   function dmy(x){ return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear(); }
@@ -1682,7 +1806,7 @@ var FDATOS = {a:[], t:[]}, FSEL = {a:{}, t:{}}, FVISIBLE = {a:false, t:false};
 /* Después de guardar cualquier cosa, todo lo que esté a la vista se vuelve a leer del tablero:
    la lista por estado, el historial abierto y los datos del reporte de partidas. */
 function refrescarTodo(pref, clave){
-  TINT_TODO = null;                       /* el reporte vuelve a traer los datos */
+  REP_LISTAS = null;                       /* el reporte vuelve a traer los datos */
   if(FVISIBLE[pref]) verPorEstado(pref);  /* la lista por estado se recarga sola */
   if(clave){                              /* y el historial que esté abierto */
     if(pref==='t'){
@@ -1855,6 +1979,7 @@ function vaciarFormAud(){
 }
 function vaciarFormTint(){
   ['t_tint','t_auditores','t_origen'].forEach(function(id){ ponerCerrado(id,''); });
+  ['1','2'].forEach(function(n){ el('t_fam'+n).value=''; llenarDefectos(n); });
   ['t_art','t_grupo','t_color','t_peso','t_auditores','t_obs','t_origen']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value = hoyDMY();
@@ -2084,7 +2209,7 @@ function guardarDef(){
   enviar({token:TOKEN, tabla:'DEFTEX_FORM', usuario:usuario(), registro:r, detalle:det}, function(){
     setTimeout(function(){
       el('d_guardar').disabled = false; el('d_guardar').innerHTML = 'Guardar';
-      TINT_TODO = null;
+      REP_LISTAS = null;
       msg('d_salida','ok','<b>Guardado.</b> '+fn(totalEnv)+' defectos en '+det.length+
         ' tipo(s) · '+(totalEnv/prendas*100).toFixed(2)+'% de rechazo sobre '+fn(prendas)+' prendas.');
       limpiarDef(true);
@@ -2123,6 +2248,8 @@ function corregirTint(e){
   el('t_estado').value = e.estado || '';
   el('t_obs').value = e.obs || '';
   ponerCerrado('t_origen', e.origen && e.origen!=='S/ORIGEN' ? e.origen : '');
+  el('t_fam1').value = e.familia1 || ''; llenarDefectos('1'); el('t_def1').value = e.defecto1 || '';
+  el('t_fam2').value = e.familia2 || ''; llenarDefectos('2'); el('t_def2').value = e.defecto2 || '';
   el('t_guardar').textContent = 'Guardar corrección';
   el('t_guardar').className = 'btn warn';
   avisoCorreccion('t_salida', 'Al guardar se reemplaza lo que decía esa revisión; el valor anterior queda en el registro de cambios.',
@@ -2223,12 +2350,14 @@ function guardarTint(){
     var rc = {fecha:fT, tintoreria:valorCerrado('t_tint'), partida:p, articulo:T(el('t_art').value),
       grupo:UP(el('t_grupo').value), color:UP(el('t_color').value), peso:N(el('t_peso').value),
       auditores:valorCerrado('t_auditores'), estado:estado, obs:T(el('t_obs').value),
-      origen:valorCerrado('t_origen')};
+      origen:valorCerrado('t_origen'),
+      familia1:T(el('t_fam1').value), defecto1:T(el('t_def1').value),
+      familia2:T(el('t_fam2').value), defecto2:T(el('t_def2').value)};
     el('t_guardar').disabled = true; el('t_guardar').innerHTML = '<span class="spin"></span>Corrigiendo…';
     enviar({token:TOKEN, tabla:'CORREGIR', destino:'TINT_DIARIO', id:TIN_CORRIGE.id,
       usuario:usuario(), registro:rc}, function(){
       setTimeout(function(){
-        TIN_CORRIGE = null; TINT_TODO = null;
+        TIN_CORRIGE = null; REP_LISTAS = null;
         el('t_guardar').disabled = false; el('t_guardar').textContent = 'Guardar registro';
         el('t_guardar').className = 'btn';
         if(FVISIBLE.t) verPorEstado('t');
@@ -2253,11 +2382,13 @@ function guardarTint(){
   var r = {fecha:fT, tintoreria:valorCerrado('t_tint'), partida:p,
     articulo:T(el('t_art').value), grupo:UP(el('t_grupo').value), color:UP(el('t_color').value),
     peso:N(el('t_peso').value), auditores:valorCerrado('t_auditores'), estado:estado,
-    obs:T(el('t_obs').value), origen:valorCerrado('t_origen')};
+    obs:T(el('t_obs').value), origen:valorCerrado('t_origen'),
+    familia1:T(el('t_fam1').value), defecto1:T(el('t_def1').value),
+    familia2:T(el('t_fam2').value), defecto2:T(el('t_def2').value)};
   el('t_guardar').disabled = true;
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
-    TINT_TODO = null;                  /* el reporte vuelve a traer los datos */
+    REP_LISTAS = null;                  /* el reporte vuelve a traer los datos */
     if(FVISIBLE.t) verPorEstado('t');  /* y la lista por estado se recarga sola */
     sumarACatalogo('TINTORERIA', r.tintoreria);
     sumarACatalogo('AUDITOR', r.auditores);
@@ -2283,6 +2414,7 @@ function limpiarTint(){
   TIN_CORRIGE = null;
   el('t_guardar').textContent = 'Guardar registro'; el('t_guardar').className = 'btn';
   ['t_tint','t_auditores','t_origen'].forEach(function(id){ ponerCerrado(id,''); });
+  ['1','2'].forEach(function(n){ el('t_fam'+n).value=''; llenarDefectos(n); });
   ['t_partida','t_art','t_grupo','t_color','t_peso','t_obs']
     .forEach(function(id){ el(id).value=''; });
   el('t_estado').value=''; el('t_fecha').value=hoyDMY();
@@ -2374,6 +2506,23 @@ ligarFecha('r_hasta', verReporte);
 el('r_ver').onclick = verReporte;
 el('r_hoy').onclick = hoyReporte;
 el('r_sem').onclick = semanaReporte;
+el('r_todo').onclick = todoReporte;
+ligarCalendario('r_desde'); ligarCalendario('r_hasta');
+['r_ftint','r_festado'].forEach(function(id){
+  var e2=el(id); if(e2) e2.onchange = verReporte;
+});
+/* al escribir se espera a que termine, para no consultar en cada tecla */
+['r_fpartida','r_fgrupo','r_fcolor'].forEach(function(id){
+  var e3=el(id); if(!e3) return;
+  e3.oninput = function(){
+    clearTimeout(window['_t_'+id]);
+    window['_t_'+id] = setTimeout(verReporte, 450);
+  };
+});
+el('r_limpiar').onclick = function(){
+  ['r_ftint','r_festado','r_fgrupo','r_fcolor','r_fpartida'].forEach(function(id){ el(id).value=''; });
+  verReporte();
+};
 el('r_print').onclick = function(){ window.print(); };
 el('r_copiar').onclick = copiarTabla;
 
