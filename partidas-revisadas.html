@@ -448,8 +448,8 @@
         </div>
         <div class="grid" style="margin-top:14px">
           <div><label>Tintorería</label><select id="r_ftint"><option value="">Todas</option></select></div>
-          <div><label>Grupo</label><select id="r_fgrupo"><option value="">Todos</option></select></div>
-          <div><label>Color</label><select id="r_fcolor"><option value="">Todos</option></select></div>
+          <div><label>Grupo</label><input type="text" id="r_fgrupo" placeholder="Ej: PAK-1 o THY" autocomplete="off"><div class="hint" id="r_hgrupo"></div></div>
+          <div><label>Color</label><input type="text" id="r_fcolor" placeholder="Ej: NAVY o BLACK" autocomplete="off"><div class="hint" id="r_hcolor"></div></div>
           <div><label>Partida</label><input type="text" id="r_fpartida" placeholder="Número o parte del número" autocomplete="off"></div>
           <div><label>Estado</label><select id="r_festado"><option value="">Todos</option></select></div>
           <div style="align-self:end"><button class="btn sec" type="button" id="r_limpiar">Quitar filtros</button></div>
@@ -1685,15 +1685,17 @@ function pintarListasRep(){
     if(prev) sel.value=prev;
   }
   opts('r_ftint',  REP_LISTAS.tintorerias, 'Todas');
-  opts('r_fgrupo', REP_LISTAS.grupos,      'Todos');
-  opts('r_fcolor', REP_LISTAS.colores,     'Todos');
   opts('r_festado',REP_LISTAS.estados,     'Todos');
+  /* grupo y color son cientos: se buscan escribiendo parte del nombre */
+  var hg=el('r_hgrupo'), hc=el('r_hcolor');
+  if(hg) hg.textContent = REP_LISTAS.n_grupos ? 'Escribe parte del nombre · hay '+fn(REP_LISTAS.n_grupos)+' grupos' : '';
+  if(hc) hc.textContent = REP_LISTAS.n_colores ? 'Escribe parte del nombre · hay '+fn(REP_LISTAS.n_colores)+' colores' : '';
 }
 function textoFiltro(){
   var p=[];
   if(T(el('r_ftint').value))    p.push('tintorería '+T(el('r_ftint').value));
-  if(T(el('r_fgrupo').value))   p.push('grupo '+T(el('r_fgrupo').value));
-  if(T(el('r_fcolor').value))   p.push('color '+T(el('r_fcolor').value));
+  if(T(el('r_fgrupo').value))   p.push('grupo que contenga «'+UP(el('r_fgrupo').value)+'»');
+  if(T(el('r_fcolor').value))   p.push('color que contenga «'+UP(el('r_fcolor').value)+'»');
   if(T(el('r_festado').value))  p.push('estado '+T(el('r_festado').value));
   if(T(el('r_fpartida').value)) p.push('partida que contenga «'+UP(el('r_fpartida').value)+'»');
   return p.length ? ' · filtrado por '+p.join(', ') : '';
@@ -1736,8 +1738,8 @@ function verReporte(){
     if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
     var url = API+'?action=rep_datos&desde='+d1+'&hasta='+d2+
       '&tint='+encodeURIComponent(T(el('r_ftint').value))+
-      '&grupo='+encodeURIComponent(T(el('r_fgrupo').value))+
-      '&color='+encodeURIComponent(T(el('r_fcolor').value))+
+      '&grupo='+encodeURIComponent(UP(el('r_fgrupo').value))+
+      '&color='+encodeURIComponent(UP(el('r_fcolor').value))+
       '&estado='+encodeURIComponent(T(el('r_festado').value))+
       '&partida='+encodeURIComponent(UP(el('r_fpartida').value));
     var pide = ++REP_PIDE;
@@ -2506,16 +2508,20 @@ el('r_hoy').onclick = hoyReporte;
 el('r_sem').onclick = semanaReporte;
 el('r_todo').onclick = todoReporte;
 ligarCalendario('r_desde'); ligarCalendario('r_hasta');
-['r_ftint','r_fgrupo','r_fcolor','r_festado'].forEach(function(id){
+['r_ftint','r_festado'].forEach(function(id){
   var e2=el(id); if(e2) e2.onchange = verReporte;
 });
-el('r_fpartida').oninput = function(){
-  clearTimeout(window._tp);
-  window._tp = setTimeout(verReporte, 350);
-};
+/* al escribir se espera a que termine, para no consultar en cada tecla */
+['r_fpartida','r_fgrupo','r_fcolor'].forEach(function(id){
+  var e3=el(id); if(!e3) return;
+  e3.oninput = function(){
+    clearTimeout(window['_t_'+id]);
+    window['_t_'+id] = setTimeout(verReporte, 450);
+  };
+});
 el('r_limpiar').onclick = function(){
-  ['r_ftint','r_fgrupo','r_fcolor','r_festado'].forEach(function(id){ el(id).value=''; });
-  el('r_fpartida').value=''; verReporte();
+  ['r_ftint','r_festado','r_fgrupo','r_fcolor','r_fpartida'].forEach(function(id){ el(id).value=''; });
+  verReporte();
 };
 el('r_print').onclick = function(){ window.print(); };
 el('r_copiar').onclick = copiarTabla;
