@@ -92,6 +92,11 @@
   .flist .acc select,.flist .acc input{font-family:inherit;font-size:12.5px;border:1.5px solid var(--warm);
     border-radius:6px;padding:6px 9px;}
   .flist .acc input.obs{flex:1;min-width:180px;}
+  .modo{display:inline-flex;background:var(--warm-light);border-radius:8px;padding:3px;gap:2px;}
+  .modo button{background:none;border:none;font-family:inherit;font-size:13px;font-weight:700;
+    color:var(--stone);padding:7px 16px;border-radius:6px;cursor:pointer;}
+  .modo button.on{background:var(--sage);color:#fff;}
+  .rangoOff{opacity:.45;pointer-events:none;}
   .fecha{position:relative;display:flex;align-items:center;}
   .fecha input[type=text]{padding-right:38px;}
   .fecha .calbtn{position:absolute;right:6px;width:26px;height:26px;display:flex;align-items:center;
@@ -431,8 +436,13 @@
 
       <div class="card no-print">
         <h2>Período</h2>
-        <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar.</div>
-        <div class="grid">
+        <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar,
+          o pasa a «Todo el historial» para buscar sin importar la fecha.</div>
+        <div class="modo" style="margin-bottom:14px">
+          <button type="button" id="r_mfecha" class="on">Por fechas</button>
+          <button type="button" id="r_mtodo">Todo el historial</button>
+        </div>
+        <div class="grid" id="r_rango">
           <div><label>Desde</label>
             <div class="fecha"><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
               <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="r_desde_cal"></span></div></div>
@@ -443,7 +453,7 @@
             <button class="btn" type="button" id="r_ver">Ver</button>
             <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
             <button class="btn sec" type="button" id="r_sem" style="margin-left:6px">Últimos 7 días</button>
-            <button class="btn sec" type="button" id="r_todo" style="margin-left:6px">Todo el historial</button>
+
           </div>
         </div>
         <div class="grid" style="margin-top:14px">
@@ -1660,6 +1670,16 @@ function cargarIndices(){
 /* El filtrado ocurre en el tablero: traer las 2,400 revisiones completas en cada
    consulta dejaba la página colgada. Aquí solo se guardan los valores de los desplegables. */
 var REP_LISTAS = null, REP_PIDE = 0;
+/* «Por fechas» para el cuadro que se envía; «Todo el historial» para buscar una
+   partida, un color o un grupo sin que la fecha estorbe. */
+var REP_MODO = 'fecha';
+function ponerModo(m){
+  REP_MODO = m;
+  el('r_mfecha').className = (m==='fecha') ? 'on' : '';
+  el('r_mtodo').className  = (m==='todo')  ? 'on' : '';
+  var r = el('r_rango'); if(r) r.className = 'grid' + (m==='todo' ? ' rangoOff' : '');
+  verReporte();
+}
 
 function cargarListasRep(luego){
   if(REP_LISTAS){ luego(); return; }
@@ -1705,12 +1725,23 @@ function hayFiltro(){ return textoFiltro() !== ''; }
 function pintarReporte(res, d1, d2){
   var f = res.filas || [];
   el('r_salida').innerHTML='';
-  el('r_titulo').textContent = 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2)+
-    ' · '+f.length+' revisión(es)'+textoFiltro();
+  var enc = (REP_MODO==='todo')
+    ? 'Todo el historial'
+    : 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2);
+  el('r_titulo').textContent = enc+' · '+f.length+' revisión(es)'+textoFiltro();
   if(!f.length){
     el('r_kg').innerHTML=''; el('r_res').innerHTML='';
-    el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
-      (hayFiltro()?' con esos filtros':'')+' en esas fechas.</td></tr>';
+    if(hayFiltro() && REP_MODO==='fecha'){
+      el('r_tabla').innerHTML='<tr><td style="padding:12px;color:#5F726C">'+
+        'No hay revisiones con esos filtros <b>en esas fechas</b>. '+
+        '<button class="btn" type="button" id="r_sug" style="margin-left:8px">Buscar en todo el historial</button>'+
+        '</td></tr>';
+      var b=el('r_sug'); if(b) b.onclick=function(){ ponerModo('todo'); };
+    } else {
+      el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
+        (hayFiltro()?' con esos filtros':'')+
+        (REP_MODO==='fecha'?' en esas fechas':' en todo el historial')+'.</td></tr>';
+    }
     return;
   }
   var kg=res.kg||{}, kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
@@ -1733,9 +1764,12 @@ function pintarReporte(res, d1, d2){
 
 function verReporte(){
   cargarListasRep(function(){
-    var d1=dmy2iso(el('r_desde').value), d2=dmy2iso(el('r_hasta').value);
-    if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
-    if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
+    var d1='', d2='';
+    if(REP_MODO==='fecha'){
+      d1=dmy2iso(el('r_desde').value); d2=dmy2iso(el('r_hasta').value);
+      if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
+      if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
+    }
     var url = API+'?action=rep_datos&desde='+d1+'&hasta='+d2+
       '&tint='+encodeURIComponent(T(el('r_ftint').value))+
       '&grupo='+encodeURIComponent(UP(el('r_fgrupo').value))+
@@ -1773,16 +1807,6 @@ function copiarTabla(){
 function hoyReporte(){
   var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
 }
-function todoReporte(){
-  cargarListasRep(function(){
-    if(REP_LISTAS && REP_LISTAS.desde){
-      el('r_desde').value=iso2dmy(REP_LISTAS.desde);
-      el('r_hasta').value=iso2dmy(REP_LISTAS.hasta);
-    }
-    verReporte();
-  });
-}
-
 function semanaReporte(){
   var d=new Date(), a=new Date(d.getTime()-6*86400000);
   function dmy(x){ return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear(); }
@@ -2504,9 +2528,10 @@ ligarFecha('r_desde', verReporte);
 ligarFecha('r_hasta', verReporte);
 
 el('r_ver').onclick = verReporte;
-el('r_hoy').onclick = hoyReporte;
-el('r_sem').onclick = semanaReporte;
-el('r_todo').onclick = todoReporte;
+el('r_hoy').onclick = function(){ REP_MODO='fecha'; ponerModo('fecha'); hoyReporte(); };
+el('r_mfecha').onclick = function(){ ponerModo('fecha'); };
+el('r_mtodo').onclick  = function(){ ponerModo('todo'); };
+el('r_sem').onclick = function(){ REP_MODO='fecha'; ponerModo('fecha'); semanaReporte(); };
 ligarCalendario('r_desde'); ligarCalendario('r_hasta');
 ['r_ftint','r_festado'].forEach(function(id){
   var e2=el(id); if(e2) e2.onchange = verReporte;
