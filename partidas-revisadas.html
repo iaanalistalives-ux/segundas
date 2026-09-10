@@ -447,11 +447,11 @@
           </div>
         </div>
         <div class="grid" style="margin-top:14px">
-          <div><label>Tintorería</label><select id="r_ftint"></select></div>
-          <div><label>Grupo</label><select id="r_fgrupo"></select></div>
-          <div><label>Color</label><select id="r_fcolor"></select></div>
+          <div><label>Tintorería</label><select id="r_ftint"><option value="">Todas</option></select></div>
+          <div><label>Grupo</label><select id="r_fgrupo"><option value="">Todos</option></select></div>
+          <div><label>Color</label><select id="r_fcolor"><option value="">Todos</option></select></div>
           <div><label>Partida</label><input type="text" id="r_fpartida" placeholder="Número o parte del número" autocomplete="off"></div>
-          <div><label>Estado</label><select id="r_festado"></select></div>
+          <div><label>Estado</label><select id="r_festado"><option value="">Todos</option></select></div>
           <div style="align-self:end"><button class="btn sec" type="button" id="r_limpiar">Quitar filtros</button></div>
         </div>
 
@@ -1334,6 +1334,7 @@ function verDashboard(archivo){
 }
 
 function irA(vista, tipo){
+  if(vista==='v_rep') setTimeout(function(){ cargarListasRep(function(){}); }, 60);
   Array.prototype.forEach.call(document.querySelectorAll('.vista'), function(v){ v.classList.remove('active'); });
   var v = el(vista); if(v) v.classList.add('active');
   if(vista==='v_carga' && tipo){
@@ -1666,7 +1667,12 @@ function cargarListasRep(luego){
     REP_LISTAS = (res && res.ok) ? res : {tintorerias:[],grupos:[],colores:[],estados:[]};
     pintarListasRep();
     luego();
-  }, function(){ REP_LISTAS={tintorerias:[],grupos:[],colores:[],estados:[]}; luego(); });
+  }, function(){
+    REP_LISTAS={tintorerias:[],grupos:[],colores:[],estados:[]};
+    pintarListasRep();
+    msg('r_salida','err','No se pudieron traer las listas de filtros. Revisa la conexión y vuelve a dar Ver.');
+    luego();
+  });
 }
 
 function pintarListasRep(){
