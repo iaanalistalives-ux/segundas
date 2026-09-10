@@ -1386,19 +1386,17 @@ function iso2dmy(v){ var s2=T(v); return /^\d{4}-\d{2}-\d{2}/.test(s2)
   ? s2.substring(0,10).split('-').reverse().join('/') : s2; }
 /* los campos de fecha: al entrar se selecciona todo (para escribir encima sin borrar),
    se ponen las barras solas y Enter confirma */
-/* El calendario nativo escribe siempre en dd/mm/aaaa sobre el campo de texto.
-   Así se puede elegir con el ratón sin que el navegador imponga su propio orden. */
+/* El calendario nativo escribe siempre en dd/mm/aaaa sobre el campo de texto. */
 function ligarCalendario(id){
   var cal = el(id+'_cal'), txt = el(id);
   if(!cal || !txt) return;
   cal.onchange = function(){
     if(!cal.value) return;
     txt.value = iso2dmy(cal.value);
-    if(typeof verReporte === 'function') verReporte();
+    verReporte();
   };
   txt.addEventListener('change', function(){
-    var v = dmy2iso(txt.value);
-    if(v) cal.value = v;
+    var v = dmy2iso(txt.value); if(v) cal.value = v;
   });
 }
 
@@ -1658,115 +1656,97 @@ function cargarIndices(){
 }
 
 /* ---------------- reporte de partidas revisadas ---------------- */
-var TINT_TODO = null;
+/* El filtrado ocurre en el tablero: traer las 2,400 revisiones completas en cada
+   consulta dejaba la página colgada. Aquí solo se guardan los valores de los desplegables. */
+var REP_LISTAS = null, REP_PIDE = 0;
 
-function cargarTint(fn2){
-  if(TINT_TODO){ fn2(); return; }
-  msg('r_salida','warn','<span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Trayendo las revisiones…');
-  jsonp(API+'?action=read_tint', function(res){
-    TINT_TODO = (res&&res.ok) ? (res.filas||[]) : [];
-    el('r_salida').innerHTML='';
-    fn2();
-  }, function(){ msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+function cargarListasRep(luego){
+  if(REP_LISTAS){ luego(); return; }
+  jsonp(API+'?action=rep_listas', function(res){
+    REP_LISTAS = (res && res.ok) ? res : {tintorerias:[],grupos:[],colores:[],estados:[]};
+    pintarListasRep();
+    luego();
+  }, function(){ REP_LISTAS={tintorerias:[],grupos:[],colores:[],estados:[]}; luego(); });
 }
 
-var RFILTRO = {tint:'', grupo:'', color:'', partida:'', estado:''};
-
-function llenarFiltrosRep(){
-  if(!TINT_TODO) return;
+function pintarListasRep(){
+  if(!REP_LISTAS) return;
   function opts(id, valores, etq){
-    var sel = el(id); if(!sel) return;
-    var prev = sel.value;
-    sel.innerHTML = '<option value="">'+etq+'</option>' +
-      valores.map(function(v){ return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join('');
-    if(prev) sel.value = prev;
+    var sel=el(id); if(!sel) return;
+    var prev=sel.value;
+    sel.innerHTML='<option value="">'+etq+'</option>'+
+      (valores||[]).map(function(v){ return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join('');
+    if(prev) sel.value=prev;
   }
-  function unicos(campo){
-    var o = {};
-    TINT_TODO.forEach(function(r){ var v = T(r[campo]); if(v) o[v] = 1; });
-    return Object.keys(o).sort();
-  }
-  opts('r_ftint',  unicos('tintoreria'), 'Todas');
-  opts('r_fgrupo', unicos('grupo'),      'Todos');
-  opts('r_fcolor', unicos('color'),      'Todos');
-  opts('r_festado',unicos('estado'),     'Todos');
-}
-
-function leerFiltrosRep(){
-  RFILTRO = {
-    tint:    T(el('r_ftint').value),
-    grupo:   T(el('r_fgrupo').value),
-    color:   T(el('r_fcolor').value),
-    partida: UP(el('r_fpartida').value),
-    estado:  T(el('r_festado').value)
-  };
-}
-function pasaFiltro(r){
-  if(RFILTRO.tint   && T(r.tintoreria) !== RFILTRO.tint) return false;
-  if(RFILTRO.grupo  && T(r.grupo)      !== RFILTRO.grupo) return false;
-  if(RFILTRO.color  && T(r.color)      !== RFILTRO.color) return false;
-  if(RFILTRO.estado && T(r.estado)     !== RFILTRO.estado) return false;
-  if(RFILTRO.partida && UP(r.partida).indexOf(RFILTRO.partida) < 0) return false;
-  return true;
-}
-function hayFiltro(){
-  return !!(RFILTRO.tint || RFILTRO.grupo || RFILTRO.color || RFILTRO.partida || RFILTRO.estado);
+  opts('r_ftint',  REP_LISTAS.tintorerias, 'Todas');
+  opts('r_fgrupo', REP_LISTAS.grupos,      'Todos');
+  opts('r_fcolor', REP_LISTAS.colores,     'Todos');
+  opts('r_festado',REP_LISTAS.estados,     'Todos');
 }
 function textoFiltro(){
-  var p = [];
-  if(RFILTRO.tint)    p.push('tintorería '+RFILTRO.tint);
-  if(RFILTRO.grupo)   p.push('grupo '+RFILTRO.grupo);
-  if(RFILTRO.color)   p.push('color '+RFILTRO.color);
-  if(RFILTRO.estado)  p.push('estado '+RFILTRO.estado);
-  if(RFILTRO.partida) p.push('partida que contenga «'+RFILTRO.partida+'»');
+  var p=[];
+  if(T(el('r_ftint').value))    p.push('tintorería '+T(el('r_ftint').value));
+  if(T(el('r_fgrupo').value))   p.push('grupo '+T(el('r_fgrupo').value));
+  if(T(el('r_fcolor').value))   p.push('color '+T(el('r_fcolor').value));
+  if(T(el('r_festado').value))  p.push('estado '+T(el('r_festado').value));
+  if(T(el('r_fpartida').value)) p.push('partida que contenga «'+UP(el('r_fpartida').value)+'»');
   return p.length ? ' · filtrado por '+p.join(', ') : '';
+}
+function hayFiltro(){ return textoFiltro() !== ''; }
+
+function pintarReporte(res, d1, d2){
+  var f = res.filas || [];
+  el('r_salida').innerHTML='';
+  el('r_titulo').textContent = 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2)+
+    ' · '+f.length+' revisión(es)'+textoFiltro();
+  if(!f.length){
+    el('r_kg').innerHTML=''; el('r_res').innerHTML='';
+    el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
+      (hayFiltro()?' con esos filtros':'')+' en esas fechas.</td></tr>';
+    return;
+  }
+  var kg=res.kg||{}, kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
+  el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
+    kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
+    '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(res.total||0)+'</b></td></tr>';
+  var est=res.estados||{}, ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
+  el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
+    ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
+    '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(res.partidas||0)+'</b></td></tr>';
+  el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
+    '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
+    f.map(function(r){
+      return '<tr><td>'+esc(iso2dmy(r.fecha))+'</td><td>'+esc(r.tintoreria)+'</td>'+
+        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
+        '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
+        '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
+    }).join('');
 }
 
 function verReporte(){
-  cargarTint(function(){
-    llenarFiltrosRep();
-    leerFiltrosRep();
+  cargarListasRep(function(){
     var d1=dmy2iso(el('r_desde').value), d2=dmy2iso(el('r_hasta').value);
     if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
     if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
-    var f = TINT_TODO.filter(function(r){ return r.fecha && r.fecha>=d1 && r.fecha<=d2 && pasaFiltro(r); })
-      .sort(function(a,b){ return (a.fecha<b.fecha?-1:(a.fecha>b.fecha?1:
-        (T(a.tintoreria)<T(b.tintoreria)?-1:1))); });
-
-    el('r_bloque').style.display = 'block';
-    el('r_titulo').textContent = 'Del '+d1.split('-').reverse().join('/')+' al '+d2.split('-').reverse().join('/')+
-      ' · '+f.length+' revisión(es)'+textoFiltro();
-
-    if(!f.length){
-      el('r_kg').innerHTML=''; el('r_res').innerHTML='';
-      el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
-        (hayFiltro()?' con esos filtros':'')+' en esas fechas.</td></tr>';
-      return;
-    }
-
-    var kg={}, tot=0;
-    f.forEach(function(r){ var k=T(r.tintoreria)||'SIN TINTORERÍA';
-      kg[k]=(kg[k]||0)+N(r.peso); tot+=N(r.peso); });
-    var kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
-    el('r_kg').innerHTML='<tr><th>Taller</th><th class="num">Suma de peso</th></tr>'+
-      kk.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(kg[k])+'</td></tr>'; }).join('')+
-      '<tr><td><b>Total general</b></td><td class="num"><b>'+fn(tot)+'</b></td></tr>';
-
-    var est={}; f.forEach(function(r){ var e=T(r.estado)||'SIN ESTADO'; est[e]=(est[e]||0)+1; });
-    var ek=Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
-    var pa={}; f.forEach(function(r){ pa[T(r.partida).toUpperCase()]=1; });
-    el('r_res').innerHTML='<tr><th>Estado</th><th class="num">Revisiones</th></tr>'+
-      ek.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="num">'+fn(est[k])+'</td></tr>'; }).join('')+
-      '<tr><td><b>Partidas distintas</b></td><td class="num"><b>'+fn(Object.keys(pa).length)+'</b></td></tr>';
-
-    el('r_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th><th>Grupo</th>'+
-      '<th>Color</th><th class="num">Peso</th><th>Auditores</th><th>Estado</th><th>Observaciones</th></tr>'+
-      f.map(function(r){
-        return '<tr><td>'+esc(T(r.fecha).split('-').reverse().join('/'))+'</td>'+
-          '<td>'+esc(r.tintoreria)+'</td><td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo)+'</td>'+
-          '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
-          '<td>'+esc(r.auditores)+'</td><td>'+esc(r.estado)+'</td><td>'+esc(r.obs)+'</td></tr>';
-      }).join('');
+    var url = API+'?action=rep_datos&desde='+d1+'&hasta='+d2+
+      '&tint='+encodeURIComponent(T(el('r_ftint').value))+
+      '&grupo='+encodeURIComponent(T(el('r_fgrupo').value))+
+      '&color='+encodeURIComponent(T(el('r_fcolor').value))+
+      '&estado='+encodeURIComponent(T(el('r_festado').value))+
+      '&partida='+encodeURIComponent(UP(el('r_fpartida').value));
+    var pide = ++REP_PIDE;
+    el('r_bloque').style.display='block';
+    el('r_titulo').innerHTML='<span class="spin"></span>Buscando…';
+    el('r_kg').innerHTML=''; el('r_res').innerHTML=''; el('r_tabla').innerHTML='';
+    jsonp(url, function(res){
+      if(pide !== REP_PIDE) return;
+      if(!res || !res.ok){ msg('r_salida','err','No se pudo consultar el tablero.'); return; }
+      pintarReporte(res, d1, d2);
+    }, function(){
+      if(pide !== REP_PIDE) return;
+      msg('r_salida','err','No se pudo consultar el tablero. Revisa la conexión.');
+      el('r_titulo').textContent='';
+    });
   });
 }
 
@@ -1785,13 +1765,12 @@ function copiarTabla(){
 function hoyReporte(){
   var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
 }
-/* Todo el historial: útil cuando se busca por partida y no importa la fecha */
 function todoReporte(){
-  cargarTint(function(){
-    if(!TINT_TODO || !TINT_TODO.length) return;
-    var fs = TINT_TODO.map(function(r){ return r.fecha; }).filter(Boolean).sort();
-    el('r_desde').value = iso2dmy(fs[0]);
-    el('r_hasta').value = iso2dmy(fs[fs.length-1]);
+  cargarListasRep(function(){
+    if(REP_LISTAS && REP_LISTAS.desde){
+      el('r_desde').value=iso2dmy(REP_LISTAS.desde);
+      el('r_hasta').value=iso2dmy(REP_LISTAS.hasta);
+    }
     verReporte();
   });
 }
@@ -1819,7 +1798,7 @@ var FDATOS = {a:[], t:[]}, FSEL = {a:{}, t:{}}, FVISIBLE = {a:false, t:false};
 /* Después de guardar cualquier cosa, todo lo que esté a la vista se vuelve a leer del tablero:
    la lista por estado, el historial abierto y los datos del reporte de partidas. */
 function refrescarTodo(pref, clave){
-  TINT_TODO = null;                       /* el reporte vuelve a traer los datos */
+  REP_LISTAS = null;                       /* el reporte vuelve a traer los datos */
   if(FVISIBLE[pref]) verPorEstado(pref);  /* la lista por estado se recarga sola */
   if(clave){                              /* y el historial que esté abierto */
     if(pref==='t'){
@@ -2222,7 +2201,7 @@ function guardarDef(){
   enviar({token:TOKEN, tabla:'DEFTEX_FORM', usuario:usuario(), registro:r, detalle:det}, function(){
     setTimeout(function(){
       el('d_guardar').disabled = false; el('d_guardar').innerHTML = 'Guardar';
-      TINT_TODO = null;
+      REP_LISTAS = null;
       msg('d_salida','ok','<b>Guardado.</b> '+fn(totalEnv)+' defectos en '+det.length+
         ' tipo(s) · '+(totalEnv/prendas*100).toFixed(2)+'% de rechazo sobre '+fn(prendas)+' prendas.');
       limpiarDef(true);
@@ -2370,7 +2349,7 @@ function guardarTint(){
     enviar({token:TOKEN, tabla:'CORREGIR', destino:'TINT_DIARIO', id:TIN_CORRIGE.id,
       usuario:usuario(), registro:rc}, function(){
       setTimeout(function(){
-        TIN_CORRIGE = null; TINT_TODO = null;
+        TIN_CORRIGE = null; REP_LISTAS = null;
         el('t_guardar').disabled = false; el('t_guardar').textContent = 'Guardar registro';
         el('t_guardar').className = 'btn';
         if(FVISIBLE.t) verPorEstado('t');
@@ -2401,7 +2380,7 @@ function guardarTint(){
   el('t_guardar').disabled = true;
   el('t_guardar').innerHTML = '<span class="spin"></span>Guardando…';
   enviar({token:TOKEN, tabla:'TINT_FORM', usuario:usuario(), registro:r}, function(){
-    TINT_TODO = null;                  /* el reporte vuelve a traer los datos */
+    REP_LISTAS = null;                  /* el reporte vuelve a traer los datos */
     if(FVISIBLE.t) verPorEstado('t');  /* y la lista por estado se recarga sola */
     sumarACatalogo('TINTORERIA', r.tintoreria);
     sumarACatalogo('AUDITOR', r.auditores);
@@ -2522,16 +2501,15 @@ el('r_sem').onclick = semanaReporte;
 el('r_todo').onclick = todoReporte;
 ligarCalendario('r_desde'); ligarCalendario('r_hasta');
 ['r_ftint','r_fgrupo','r_fcolor','r_festado'].forEach(function(id){
-  var e2 = el(id); if(e2) e2.onchange = verReporte;
+  var e2=el(id); if(e2) e2.onchange = verReporte;
 });
 el('r_fpartida').oninput = function(){
   clearTimeout(window._tp);
-  window._tp = setTimeout(verReporte, 350);   /* espera a que termine de escribir */
+  window._tp = setTimeout(verReporte, 350);
 };
 el('r_limpiar').onclick = function(){
   ['r_ftint','r_fgrupo','r_fcolor','r_festado'].forEach(function(id){ el(id).value=''; });
-  el('r_fpartida').value='';
-  verReporte();
+  el('r_fpartida').value=''; verReporte();
 };
 el('r_print').onclick = function(){ window.print(); };
 el('r_copiar').onclick = copiarTabla;
