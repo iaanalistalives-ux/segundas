@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v2.6 · 04-09-2026';
+var VERSION = 'v3.0 · 11-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -745,7 +745,7 @@ function error(m){
    Los archivos individuales se generan reemplazando esta línea. */
 var SOLO_SEC = 's2';
 var CARGA={s1:false,s2:false,s3:false,s4:false};
-var SECDATA={s1:'read',s2:'read_corte',s3:'read_deftex',s4:'read_tint'};
+var SECDATA={s1:'read',s2:'corte_res',s3:'read_deftex',s4:'tint_res'};
 var NOMBRE={s1:'segundas piezas-prendas',s2:'rechazos de Corte',s3:'seguimiento defectos textiles',s4:'reporte diario'};
 
 /* dentro del portal las pestañas y el encabezado sobran: el panel lateral ya elige el indicador */
@@ -786,7 +786,7 @@ function arranque(){
     return;
   }
   CARGA={s1:false,s2:false,s3:false,s4:false};
-  SEG={tot:[],det:[]}; COR={aud:[],liq:[],ins:[]}; DEF={cab:[],det:[]}; TIN=[];
+  SEG={tot:[],det:[]}; COR={}; DEF={cab:[],det:[]}; TIN={};
   var inicial = SOLO_SEC || hashSec() || 's1';
   if(SOLO_SEC) ocultarPestanas();
   abrirSec(inicial, true);
@@ -818,9 +818,9 @@ function cargarSec(sec, listoFn){
 
 function guardarSec(sec,res){
   if(sec==='s1'){ leerSegundas(res); return; }
-  if(sec==='s2'){ COR={aud:res.aud||[],liq:res.liq||[],ins:res.ins||[]}; return; }
+  if(sec==='s2'){ COR=res; DET_CORTE={clave:'',filas:null,pidiendo:false}; return; }
   if(sec==='s3'){ DEF={cab:res.cab||[],det:res.det||[]}; return; }
-  TIN=res.filas||[];
+  TIN=res; DET_TINT={clave:'',filas:null,pidiendo:false};
 }
 
 var BLOQUES = {
@@ -872,14 +872,15 @@ function listo(){
   var HOY=new Date().getFullYear(), MIN=2020, MAX=HOY+1;
   var an={}; RARAS=[];
   function ver(arr,tabla,idf){
+    if(!arr || !arr.forEach) return;
     arr.forEach(function(r){
       if(!r.anio || r.anio<1900) return;
       if(r.anio<MIN || r.anio>MAX){ RARAS.push({tabla:tabla, ref:r[idf]||'', fecha:r.fecha||'', anio:r.anio}); }
       else an[r.anio]=1;
     });
   }
-  ver(SEG.tot,'Segundas','mes'); ver(COR.aud,'Auditoría de Corte','oc');
-  ver(DEF.cab,'Defectos textiles','oc'); ver(TIN,'Reporte diario','partida');
+  ver(SEG.tot,'Segundas','mes'); ver(COR.mes,'Auditoría de Corte','mes');
+  ver(DEF.cab,'Defectos textiles','oc'); ver(TIN.mes,'Reporte diario','mes');
   ANIOS=Object.keys(an).map(Number).sort();
   if(!ANIOS.length){ error('El tablero todavía no tiene datos cargados.'); return; }
   if(ST.anio!=='CMP' && ANIOS.indexOf(ST.anio)<0) ST.anio=ANIOS[ANIOS.length-1];
@@ -913,7 +914,8 @@ function pintarAnios(){
 function pintarMeses(){
   var s=el('mesSel'); s.innerHTML=''; var op=['TODOS'], hay={};
   if(ST.anio!=='CMP'){
-    [SEG.tot,COR.aud,DEF.cab,TIN].forEach(function(arr){
+    [SEG.tot, COR.mes, DEF.cab, TIN.mes].forEach(function(arr){
+      if(!arr || !arr.forEach) return;
       arr.forEach(function(r){ if(r.anio===ST.anio && r.mes) hay[r.mes]=1; }); });
     MESES.forEach(function(m){ if(hay[m]) op.push(m); });
   }
@@ -1120,229 +1122,247 @@ function secSegundas(){
 }
 
 /* ================= 2 · RECHAZOS DE CORTE ================= */
-function ultimoPorOC(aud){
-  var m={};
-  aud.forEach(function(r){
-    var k=r.oc.toUpperCase();
-    if(!m[k] || (r.fecha||'') >= (m[k].fecha||'')) m[k]=r;
-  });
-  return m;
+/* Trabaja con el resumen que arma el Apps Script: antes se traían 3,042 filas
+   (1.2 MB) y se calculaba en el navegador; ahora llegan unos 15 KB ya agrupados. */
+function enPC(r){
+  if(ST.anio==='CMP') return true;
+  if(r.anio!==ST.anio) return false;
+  if(ST.mes!=='TODOS' && r.mes!==ST.mes) return false;
+  return true;
 }
-function secCorte(){
-  var aud=COR.aud.filter(enP), liq=COR.liq.filter(enP), ins=COR.ins.filter(enP);
-  var altas=aud.filter(function(r){ return r.tipo_reg!=='SEGUIMIENTO'; });
-  /* una O/Corte se cuenta una sola vez, con su auditoría más reciente */
-  var porOC=ultimoPorOC(altas), ocs=Object.keys(porOC).map(function(k){ return porOC[k]; });
-  var rech=ocs.filter(function(r){ return r.estado==='RECHAZADO'; });
-  var prendas=sum(ocs,function(r){return r.prendas;});
-  var prRech=sum(rech,function(r){return r.prendas;});
-  var cort=sum(liq,function(r){return r.cortadas;});
-  var prIns=sum(ins,function(r){return r.prendas;});
 
-  var anioSp2 = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
-  var spC = MESES.map(function(m){
-    var sm=COR.aud.filter(function(r){ return r.anio===anioSp2&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; });
-    if(!sm.length) return null;
-    var p3=ultimoPorOC(sm), k3=Object.keys(p3);
-    var v3=ratio(k3.filter(function(x){return p3[x].estado==='RECHAZADO';}).length,k3.length);
-    return v3==null?null:v3*100; });
+function secCorte(){
+  var R = COR || {};
+  var mes = (R.mes||[]).filter(enPC);
+
+  var ocs   = sum(mes,function(m){return m.oc;});
+  var rech  = sum(mes,function(m){return m.rech;});
+  var pr    = sum(mes,function(m){return m.pr;});
+  var prRe  = sum(mes,function(m){return m.prRech;});
+
+  /* producción e inspecciones del mismo período */
+  var cort=0, insN=0, insPr=0;
+  Object.keys(R.liqMes||{}).forEach(function(k){
+    var p=k.split('|');
+    if(ST.anio==='CMP' || (Number(p[0])===ST.anio && (ST.mes==='TODOS'||p[1]===ST.mes))) cort+=R.liqMes[k];
+  });
+  Object.keys(R.insMes||{}).forEach(function(k){
+    var p=k.split('|');
+    if(ST.anio==='CMP' || (Number(p[0])===ST.anio && (ST.mes==='TODOS'||p[1]===ST.mes))){
+      insN+=R.insMes[k].n; insPr+=R.insMes[k].pr; }
+  });
+
+  /* sparkline del % de rechazo mensual */
+  var anioSp2=(ST.anio==='CMP')?ANIOS[ANIOS.length-1]:ST.anio;
+  var spC=MESES.map(function(m){
+    var f=(R.mes||[]).filter(function(x){ return x.anio===anioSp2 && x.mes===m; });
+    if(!f.length) return null;
+    var o=sum(f,function(x){return x.oc;}), r=sum(f,function(x){return x.rech;});
+    return o ? r/o*100 : null;
+  });
+
   el('k2').innerHTML=
-    kpi(pct(ratio(rech.length,ocs.length)),'% Rech sobre N° O/C',rech.length+' de '+fn(ocs.length)+' auditadas','primary',null,
+    kpi(pct(ratio(rech,ocs)),'% Rech sobre N° O/C',fn(rech)+' de '+fn(ocs)+' auditadas','primary',null,
       sparkline(spC, C.rose))+
-    kpi(num(ocs.length),'N° O/C auditadas',etiqueta())+
-    kpi(pct(ratio(prRech,prendas)),'% Rech sobre N° Prendas',fn(prRech)+' de '+fn(prendas))+
+    kpi(num(ocs),'N° O/C auditadas',etiqueta())+
+    kpi(pct(ratio(prRe,pr)),'% Rech sobre N° Prendas',fn(prRe)+' de '+fn(pr))+
     kpi(cort>0?num(cort):'—','Prendas cortadas',cort>0?'liquidación del Sistema':'sin liquidación del período')+
-    kpi(cort>0?pct(ratio(prIns,cort)):'—','% inspeccionado sobre lo producido',cort>0?fn(prIns)+' prendas inspeccionadas':'');
+    kpi(cort>0?pct(ratio(insPr,cort)):'—','% inspeccionado sobre lo producido',
+      cort>0?fn(insPr)+' prendas inspeccionadas':'');
 
   el('n2').innerHTML='<b>Cómo se cuenta:</b> cada O/Corte se cuenta una sola vez, con su auditoría más reciente, '+
     'aunque tenga varios seguimientos. El % sobre producción usa las prendas cortadas de la liquidación del Sistema. '+
     'Los porcentajes son ponderados: suma de rechazadas ÷ suma de auditadas.';
 
+  /* --- paneles LIVES y talleres --- */
+  var mods = (R.mod||[]);
   var html='';
   [['LIVES','Módulos de Corte LIVES',''],['TALLER','Talleres de Corte','tall']].forEach(function(g){
-    var s=ocs.filter(function(r){return r.tipo===g[0];});
-    var sr=s.filter(function(r){return r.estado==='RECHAZADO';});
+    var s2=mods.filter(function(m){ return m.tipo===g[0]; });
+    var so=sum(s2,function(m){return m.oc;}), sr=sum(s2,function(m){return m.rech;});
     html+='<div class="kpanel '+g[2]+'"><div class="kh">'+g[1]+'</div><div class="kgrid">'+
-      '<div class="kcell '+g[2]+'"><div class="v">'+fn(s.length)+'</div><div class="l">O/C auditadas</div></div>'+
-      '<div class="kcell"><div class="v ap">'+fn(s.length-sr.length)+'</div><div class="l">Aprobadas</div></div>'+
-      '<div class="kcell"><div class="v re">'+fn(sr.length)+'</div><div class="l">Rechazadas</div></div>'+
-      '<div class="kcell '+g[2]+'"><div class="v">'+fn(sum(s,function(r){return r.prendas;}))+'</div><div class="l">Prendas</div></div>'+
+      '<div class="kcell '+g[2]+'"><div class="v">'+fn(so)+'</div><div class="l">O/C auditadas</div></div>'+
+      '<div class="kcell"><div class="v ap">'+fn(so-sr)+'</div><div class="l">Aprobadas</div></div>'+
+      '<div class="kcell"><div class="v re">'+fn(sr)+'</div><div class="l">Rechazadas</div></div>'+
+      '<div class="kcell '+g[2]+'"><div class="v">'+fn(sum(s2,function(m){return m.pr;}))+'</div><div class="l">Prendas</div></div>'+
       '</div><div class="donutwrap"><div class="dc"><canvas id="dn_'+g[0]+'"></canvas></div>'+
-      '<div class="dleg"><b>'+fp(ratio(sr.length,s.length))+'</b>de rechazo</div></div></div>';
+      '<div class="dleg"><b>'+fp(ratio(sr,so))+'</b>de rechazo</div></div></div>';
   });
   el('kd2').innerHTML=html;
   ['LIVES','TALLER'].forEach(function(g){
-    var s=ocs.filter(function(r){return r.tipo===g;});
-    var sr=s.filter(function(r){return r.estado==='RECHAZADO';}).length;
+    var s2=mods.filter(function(m){ return m.tipo===g; });
+    var so=sum(s2,function(m){return m.oc;}), sr=sum(s2,function(m){return m.rech;});
     mk('dn_'+g,{type:'doughnut',data:{labels:['Rechazadas','Aprobadas'],
-      datasets:[{data:[sr,Math.max(s.length-sr,0)],backgroundColor:[C.rose,g==='LIVES'?C.sage:C.slate],borderWidth:0}]},
+      datasets:[{data:[sr,Math.max(so-sr,0)],backgroundColor:[C.rose,g==='LIVES'?C.sage:C.slate],borderWidth:0}]},
       options:{cutout:'74%',plugins:{legend:{display:false},
         tooltip:{callbacks:{label:function(c){ return c.label+': '+fn(c.parsed); }}}}}});
   });
 
-  var anios=(ST.anio==='CMP')?ANIOS:[ST.anio], ds2=[];
+  /* --- evolución mensual --- */
+  var ds2, lb;
   if(ST.anio==='CMP'){
-    anios.forEach(function(a,i){
-      ds2.push({type:'line',label:'% Rech sobre N° O/C '+a,borderColor:[C.rose,C.slate,C.taupe][i%3],
-        backgroundColor:[C.rose,C.slate,C.taupe][i%3],borderWidth:2.5,tension:.3,spanGaps:true,pointRadius:3,yAxisID:'y1',
+    ds2=[]; lb=M3;
+    ANIOS.forEach(function(a,i){
+      ds2.push({type:'line',label:'% Rech sobre N° O/C '+a,yAxisID:'y1',
+        borderColor:[C.rose,C.slate,C.taupe][i%3],backgroundColor:[C.rose,C.slate,C.taupe][i%3],
+        borderWidth:2.5,tension:.3,spanGaps:true,pointRadius:3,pointBorderColor:'#fff',pointBorderWidth:1.5,
         data:MESES.map(function(m){
-          var s=COR.aud.filter(function(r){ return r.anio===a&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; });
-          if(!s.length) return null;
-          var p=ultimoPorOC(s), k=Object.keys(p);
-          return ratio(k.filter(function(x){return p[x].estado==='RECHAZADO';}).length,k.length)*100; })});
+          var f=(R.mes||[]).filter(function(x){ return x.anio===a && x.mes===m; });
+          if(!f.length) return null;
+          var o=sum(f,function(x){return x.oc;});
+          return o ? sum(f,function(x){return x.rech;})/o*100 : null; })});
     });
     el('t2h').textContent='Comparativo entre años · % Rech sobre N° O/C por mes';
   }else{
-    var ms=MESES.filter(function(m){ return COR.aud.some(function(r){ return r.anio===ST.anio&&r.mes===m; }); });
-    var setM=ms.map(function(m){ return COR.aud.filter(function(r){ return r.anio===ST.anio&&r.mes===m&&r.tipo_reg!=='SEGUIMIENTO'; }); });
-    ds2=[{type:'bar',label:'N° O/C auditadas',yAxisID:'y',order:3,backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,
-        data:setM.map(function(s){ return Object.keys(ultimoPorOC(s)).length; })},
+    var ms=MESES.filter(function(m){ return (R.mes||[]).some(function(x){ return x.anio===ST.anio&&x.mes===m; }); });
+    lb=ms.map(function(m){ return M3[MESES.indexOf(m)]; });
+    var dat=ms.map(function(m){
+      var f=(R.mes||[]).filter(function(x){ return x.anio===ST.anio&&x.mes===m; });
+      return {oc:sum(f,function(x){return x.oc;}), rech:sum(f,function(x){return x.rech;}),
+        pr:sum(f,function(x){return x.pr;}), prRech:sum(f,function(x){return x.prRech;})};
+    });
+    ds2=[{type:'bar',label:'N° O/C auditadas',yAxisID:'y',order:3,
+        backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,
+        data:dat.map(function(d){ return d.oc; })},
       {type:'line',label:'% Rech sobre N° O/C',yAxisID:'y1',order:1,borderColor:C.rose,backgroundColor:C.rose,
-        borderWidth:2.5,tension:.3,pointRadius:3,
-        data:setM.map(function(s){ var p=ultimoPorOC(s), k=Object.keys(p);
-          var v=ratio(k.filter(function(x){return p[x].estado==='RECHAZADO';}).length,k.length); return v==null?null:v*100; })},
+        borderWidth:2.5,tension:.3,pointRadius:3,pointBorderColor:'#fff',pointBorderWidth:1.5,
+        data:dat.map(function(d){ return d.oc ? d.rech/d.oc*100 : null; })},
       {type:'line',label:'% Rech sobre N° Prendas',yAxisID:'y1',order:2,borderColor:C.sage,backgroundColor:C.sage,
-        borderWidth:2.5,tension:.3,pointRadius:3,borderDash:[5,4],
-        data:setM.map(function(s){ var p=ultimoPorOC(s), k=Object.keys(p);
-          var num=0,den=0; k.forEach(function(x){ den+=p[x].prendas; if(p[x].estado==='RECHAZADO') num+=p[x].prendas; });
-          var v=ratio(num,den); return v==null?null:v*100; })}];
-    ds2.labels=ms;
+        borderWidth:2.5,tension:.3,pointRadius:3,borderDash:[5,4],pointBorderColor:'#fff',pointBorderWidth:1.5,
+        data:dat.map(function(d){ return d.pr ? d.prRech/d.pr*100 : null; })}];
     el('t2h').textContent='Año '+ST.anio+' · N° O/C auditadas y % de rechazo por mes';
   }
-  var lb=(ST.anio==='CMP')?M3:MESES.filter(function(m){ return COR.aud.some(function(r){ return r.anio===ST.anio&&r.mes===m; }); })
-    .map(function(m){ return M3[MESES.indexOf(m)]; });
   mk('c_tend2',realzarLineas({data:{labels:lb,datasets:ds2},options:{
-    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
-      tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
+    plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+      (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
     scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'N° O/C'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-      x:{grid:{display:false}}}},
-    plugins:[pointLabels]}));
+      x:{grid:{display:false}}}}}),[pointLabels]);
 
-  /* origen: de las inspecciones (clasificación de Calidad) */
-  var go=group(ins,function(r){ return r.origen||'S/O'; });
-  var gk=claves(go,function(v){return v.length;});
-  var tOr=ins.length||1;
-  mk('c_origen',{type:'bar',data:{labels:gk,datasets:[{data:gk.map(function(k){ return go.get(k).length/tOr*100; }),
-    backgroundColor:gk.map(function(k){ return k==='TEXTIL'?C.taupe:(k==='CORTE'?C.slate:C.warm); }),borderRadius:4,barThickness:18}]},
+  /* --- origen del defecto --- */
+  var org=R.origen||{}, gk=Object.keys(org).sort(function(a,b){ return org[b]-org[a]; });
+  var tOr=sum(gk,function(k){ return org[k]; })||1;
+  mk('c_origen',{type:'bar',data:{labels:gk,datasets:[{data:gk.map(function(k){ return org[k]/tOr*100; }),
+    backgroundColor:gk.map(function(k){ return k==='TEXTIL'?C.taupe:(k==='CORTE'?C.slate:C.warm); }),
+    borderRadius:4,barThickness:18}]},
     options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
-      tooltip:{callbacks:{label:function(c){ return fn(go.get(c.label).length)+' inspecciones · '+c.parsed.x.toFixed(1)+'%'; }}}},
+      tooltip:{callbacks:{label:function(c){ return fn(org[c.label])+' inspecciones · '+c.parsed.x.toFixed(1)+'%'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},y:{grid:{display:false}}}},
     plugins:[barLabels]});
-  el('h_org').textContent = ins.length ? fn(ins.length)+' inspecciones · '+etiqueta()
-    : 'Sin inspecciones en el período';
+  el('h_org').textContent = tOr>1 ? fn(tOr)+' inspecciones clasificadas' : 'Sin inspecciones clasificadas';
 
-  var gm=group(ocs,function(r){return ali(r.modulo);});
-  var mk2=Array.from(gm.keys()).filter(function(k){ return gm.get(k).length>=3; });
-  mk2.sort(function(a,b){ return ratio(gm.get(b).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(b).length)
-                              -ratio(gm.get(a).filter(function(r){return r.estado==='RECHAZADO';}).length,gm.get(a).length); });
-  mk2=mk2.slice(0,10);
-  var det2={};
-  mk2.forEach(function(k){ var sm=gm.get(k);
-    det2[k]={r:sm.filter(function(r){return r.estado==='RECHAZADO';}).length, t:sm.length}; });
-  mk('c_mod',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){
-      return ratio(det2[k].r,det2[k].t)*100; }),
-    backgroundColor:mk2.map(function(k){ return k.indexOf('MODULO')===0?C.sage:C.slate; }),borderRadius:4,barThickness:16,
-    _det:mk2.map(function(k){ return det2[k]; })}]},
+  /* --- % por módulo / taller --- */
+  var conMin = mods.filter(function(m){ return m.oc>=3; })
+    .map(function(m){ return {nombre:m.nombre, valor:ratio(m.rech,m.oc)*100, r:m.rech, t:m.oc,
+      sub:m.rech+' de '+m.oc+' O/C · '+fn(m.pr)+' prendas', tipo:m.tipo}; })
+    .sort(function(a,b){ return b.valor-a.valor; });
+  var top10 = conMin.slice(0,10);
+  mk('c_mod',{type:'bar',data:{labels:top10.map(function(x){return x.nombre;}),
+    datasets:[{data:top10.map(function(x){return x.valor;}),
+      backgroundColor:top10.map(function(x){ return x.tipo==='LIVES'?C.sage:C.slate; }),
+      borderRadius:4,barThickness:16,_det:top10}]},
     options:{indexAxis:'y',layout:{padding:{right:104}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v,i,ds){ var d=ds&&ds._det&&ds._det[i];
         return v.toFixed(1)+'%'+(d?'  ('+d.r+' de '+d.t+')':''); }},
-      tooltip:{callbacks:{label:function(c){ var s=gm.get(c.label);
-        return s.filter(function(r){return r.estado==='RECHAZADO';}).length+' de '+s.length+' O/C'; }}}},
+      tooltip:{callbacks:{label:function(c){ var d=top10[c.dataIndex]; return d.sub; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},y:{grid:{display:false}}}},
     plugins:[barLabels]});
 
-  var gl=group(liq,function(r){return r.cliente;}), gi=group(ins,function(r){return r.cliente;});
-  var ck2=Array.from(gl.keys());
-  Array.from(gi.keys()).forEach(function(k){ if(ck2.indexOf(k)<0) ck2.push(k); });
-  ck2.sort(function(a,b){ return sum(gl.get(b)||[],function(r){return r.cortadas;})-sum(gl.get(a)||[],function(r){return r.cortadas;}); });
-  ck2=ck2.slice(0,10);
-  var co=ck2.map(function(k){ return sum(gl.get(k)||[],function(r){return r.cortadas;}); });
-  var re=ck2.map(function(k){ return sum(gi.get(k)||[],function(r){return r.prendas;}); });
-  mk('c_grupo',{data:{labels:ck2,datasets:[
-    {type:'bar',label:'Prendas cortadas',data:co,backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:3},
-    {type:'bar',label:'Prendas inspeccionadas',data:re,backgroundColor:C.rose,order:2},
-    {type:'line',label:'% inspeccionado',data:ck2.map(function(k,i){ return co[i]>0?re[i]/co[i]*100:null; }),
-     borderColor:C.taupe,backgroundColor:C.taupe,borderWidth:2.5,tension:.3,pointRadius:3,yAxisID:'y1',order:1}]},
-    options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
-      tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
-      scales:{y:{beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return fn(v);}}},
-        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-        x:{grid:{display:false}}}},
-    plugins:[pointLabels]});
-  el('f_grupo').textContent = cort>0 ? 'Producción de la liquidación del Sistema · '+etiqueta()
-    : 'No hay liquidación cargada para el período seleccionado.';
+  ranking('rk2', conMin, META_CORTE, function(v){ return v.toFixed(1)+'%'; });
 
-  var TELA={}; COR.liq.forEach(function(r){ if(r.cod_tela && r.tela && !TELA[r.cod_tela]) TELA[r.cod_tela]=r.tela; });
-  COR.aud.forEach(function(r){ if(r.cod_tela && r.articulo && !TELA[r.cod_tela]) TELA[r.cod_tela]=r.articulo; });
-  var conTela=rech.filter(function(r){ return T(r.cod_tela); });
-  var sinTela=rech.length-conTela.length;
-  var gt=group(conTela,function(r){return r.cod_tela;});
-  var todasT=claves(gt,function(v){return v.length;});
-  var tk=todasT.slice(0,10);
-  var cubre=sum(tk,function(k){ return gt.get(k).length; });
-  mk('c_tela',{type:'bar',data:{labels:tk.map(function(k){ var d=TELA[k]; return d?[k,d.substring(0,30)]:k; }),
-    datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
-    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
-      barLabels:{fmt:function(v){return fn(v);}},
-      tooltip:{callbacks:{title:function(c){ var k=tk[c[0].dataIndex]; return k+(TELA[k]?' · '+TELA[k]:''); },
-        label:function(c){ return fn(c.parsed.x)+' O/Corte rechazadas'; }}}},
-      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
-    plugins:[barLabels]});
-  el('h_tela').textContent = rech.length
-    ? ('Muestra los 10 códigos con más rechazos: '+fn(cubre)+' de las '+fn(rech.length)+
-       ' O/Corte rechazadas del período'+(todasT.length>10?' ('+todasT.length+' códigos en total)':'')+
-       (sinTela?' · '+fn(sinTela)+' sin código de tela registrado':''))
-    : 'Sin O/Corte rechazadas en el período';
+  if(conMin.length>=2){
+    var peorM=conMin[0], mejorM=conMin[conMin.length-1];
+    var masVol=mods.slice().sort(function(a,b){ return b.oc-a.oc; })[0];
+    icards('ic2',
+      {etq:'Menor rechazo', nombre:mejorM.nombre, valorTxt:mejorM.valor.toFixed(1)+'%', sub:mejorM.sub, forzar:''},
+      {etq:'Mayor rechazo', nombre:peorM.nombre, valorTxt:peorM.valor.toFixed(1)+'%', sub:peorM.sub,
+       forzar: META_CORTE?undefined:'bad', valor:peorM.valor},
+      masVol?{etq:'Más O/Corte auditadas', nombre:masVol.nombre, valorTxt:fn(masVol.oc),
+       sub:'O/Corte revisadas en el período', forzar:''}:null,
+      META_CORTE);
+  } else { var c2=el('ic2'); if(c2) c2.innerHTML=''; }
 
-  sinVerdict('v_s2');   /* Calidad no declaró meta de rechazo de Corte: no se inventa */
-  var accM={}; ocs.forEach(function(r){ if(r.estado==='RECHAZADO' && r.modulo)
-    accM[ali(r.modulo)]=(accM[ali(r.modulo)]||0)+1; });
-  var cm2 = concentra(accM, rech.length);
-  insight('i_s2', ocs.length
-    ? 'De <b>'+fn(ocs.length)+'</b> O/Corte auditadas, <b>'+fn(rech.length)+'</b> se rechazaron ('+
-      fp(ratio(rech.length,ocs.length))+').'+
+  sinVerdict('v_s2');
+  var accM={}; conMin.forEach(function(m){ accM[m.nombre]=m.r; });
+  var cm2=concentra(accM, rech);
+  insight('i_s2', ocs
+    ? 'De <b>'+fn(ocs)+'</b> O/Corte auditadas, <b>'+fn(rech)+'</b> se rechazaron ('+
+      fp(ratio(rech,ocs))+').'+
       (cm2.top.length ? ' <b>'+cm2.n+' de '+cm2.total+'</b> módulos o talleres explican el '+
         fp(cm2.pct,0)+' de los rechazos: '+esc(cm2.top.join(', '))+'.' : '')+
       ' <b>No hay meta declarada</b> para este indicador, así que no se pinta semáforo.'
     : '');
 
-  /* ranking e icards de módulos y talleres */
-  var filasRk = Array.from(gm.keys()).filter(function(k){ return gm.get(k).length>=3; })
-    .map(function(k){ var g2=gm.get(k), r2=g2.filter(function(x){return x.estado==='RECHAZADO';}).length;
-      return {nombre:k, valor:ratio(r2,g2.length)*100, sub:r2+' de '+g2.length+' O/C · '+
-        fn(sum(g2,function(x){return x.prendas;}))+' prendas'}; })
-    .sort(function(a,b){ return b.valor-a.valor; });
-  ranking('rk2', filasRk, META_CORTE, function(v){ return v.toFixed(1)+'%'; });
+  /* --- rechazos por grupo vs producción --- */
+  var gr=(R.grupo||[]).slice().sort(function(a,b){ return b.cort-a.cort; }).slice(0,10);
+  mk('c_grupo',{data:{labels:gr.map(function(g){return g.cliente;}),datasets:[
+    {type:'bar',label:'Prendas cortadas',data:gr.map(function(g){return g.cort;}),
+     backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:3},
+    {type:'bar',label:'Prendas inspeccionadas',data:gr.map(function(g){return g.ins;}),
+     backgroundColor:C.rose,order:2},
+    {type:'line',label:'% inspeccionado',data:gr.map(function(g){ return g.cort>0?g.ins/g.cort*100:null; }),
+     borderColor:C.taupe,backgroundColor:C.taupe,borderWidth:2.5,tension:.3,pointRadius:3,
+     pointBorderColor:'#fff',pointBorderWidth:1.5,yAxisID:'y1',order:1}]},
+    options:{plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+      (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
+      scales:{y:{beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return fn(v);}}},
+        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
+        x:{grid:{display:false}}}}});
+  el('f_grupo').textContent = cort>0
+    ? 'Producción de la liquidación del Sistema · el acumulado no depende del mes elegido'
+    : 'No hay liquidación cargada para el período seleccionado.';
 
-  if(filasRk.length>=2){
-    var peorM = filasRk[0], mejorM = filasRk[filasRk.length-1];
-    var masVol = Array.from(gm.keys()).map(function(k){
-      return {nombre:k, n:gm.get(k).length}; }).sort(function(a,b){ return b.n-a.n; })[0];
-    icards('ic2',
-      {etq:'Menor rechazo', nombre:mejorM.nombre, valorTxt:mejorM.valor.toFixed(1)+'%',
-       sub:mejorM.sub, valor:mejorM.valor},
-      {etq:'Mayor rechazo', nombre:peorM.nombre, valorTxt:peorM.valor.toFixed(1)+'%',
-       sub:peorM.sub, valor:peorM.valor, forzar: META_CORTE?undefined:'bad'},
-      {etq:'Más O/Corte auditadas', nombre:masVol.nombre, valorTxt:fn(masVol.n),
-       sub:'O/Corte revisadas en el período', forzar:''},
-      META_CORTE);
-  } else { var c2=el('ic2'); if(c2) c2.innerHTML=''; }
+  /* --- rechazos por código de tela --- */
+  var tel=(R.tela||[]).slice().sort(function(a,b){ return b.n-a.n; });
+  var tk=tel.slice(0,10);
+  var cubre=sum(tk,function(t){return t.n;});
+  var totT=sum(tel,function(t){return t.n;});
+  mk('c_tela',{type:'bar',data:{labels:tk.map(function(t){ return t.desc?[t.cod,String(t.desc).substring(0,30)]:t.cod; }),
+    datasets:[{data:tk.map(function(t){return t.n;}),backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
+    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
+      barLabels:{fmt:function(v){return fn(v);}},
+      tooltip:{callbacks:{title:function(c){ var t=tk[c[0].dataIndex]; return t.cod+(t.desc?' · '+t.desc:''); },
+        label:function(c){ return fn(c.parsed.x)+' O/Corte rechazadas'; }}}},
+      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
+    plugins:[barLabels]});
+  el('h_tela').textContent = totT
+    ? ('Muestra los 10 códigos con más rechazos: '+fn(cubre)+' de '+fn(totT)+
+       ' O/Corte rechazadas con tela registrada'+(tel.length>10?' ('+tel.length+' códigos en total)':''))
+    : 'Sin O/Corte rechazadas con código de tela';
 
-  var todos=ultimoPorOC(aud);
-  var filas=rech.map(function(r){ return {a:r, ult:todos[r.oc.toUpperCase()]||r}; })
-    .sort(function(x,y){ return (y.a.fecha||'')<(x.a.fecha||'')?-1:1; });
-  el('h_trech').textContent=filas.length+' O/Corte rechazadas · '+etiqueta();
+  pedirDetalleCorte();
+}
+
+/* La tabla de detalle se pide aparte: es la parte pesada y solo se mira al abrir esa pestaña. */
+var DET_CORTE = {clave:'', filas:null, pidiendo:false};
+function pedirDetalleCorte(){
+  var clave = ST.anio+'|'+ST.mes;
+  if(DET_CORTE.clave===clave && DET_CORTE.filas){ pintarDetalleCorte(); return; }
+  if(DET_CORTE.pidiendo) return;
+  DET_CORTE.pidiendo = true;
+  el('h_trech').textContent='Trayendo el detalle…';
+  var q = (ST.anio==='CMP') ? '' : ('&anio='+ST.anio+'&mes='+encodeURIComponent(ST.mes));
+  jsonp(API+'?action=corte_rech'+q, function(res){
+    DET_CORTE.pidiendo=false;
+    DET_CORTE.clave=clave;
+    DET_CORTE.filas=(res&&res.ok)?(res.filas||[]):[];
+    pintarDetalleCorte();
+  }, function(){
+    DET_CORTE.pidiendo=false;
+    el('h_trech').textContent='No se pudo traer el detalle.';
+  });
+}
+function pintarDetalleCorte(){
+  var f = DET_CORTE.filas||[];
+  el('h_trech').textContent=fn(f.length)+' O/Corte rechazadas · '+etiqueta();
   el('t_rech').innerHTML='<tr><th>Fecha</th><th>O/Corte</th><th>Grupo</th><th>Tela</th><th>Módulo / Taller</th>'+
-    '<th>Origen</th><th class="num">Prendas</th><th>Estado actual</th><th>Observación</th></tr>'+
-    (filas.map(function(f){
-      var r=f.a, u=f.ult;
-      var cls=u.estado==='RECHAZADO'?'re':(u.estado==='APROBADO'?'ap':'sg');
+    '<th>Origen</th><th class="num">Prendas</th><th>Estado</th><th>Observación</th></tr>'+
+    (f.map(function(r){
       return '<tr><td>'+fdmy(r.fecha)+'</td><td><b>'+esc(r.oc)+'</b></td><td>'+esc(r.grupo)+'</td>'+
-        '<td>'+esc(r.cod_tela)+(TELA[r.cod_tela]?' · '+esc(TELA[r.cod_tela].substring(0,28)):'')+'</td>'+
+        '<td>'+esc(r.tela)+(r.art?' · '+esc(String(r.art).substring(0,28)):'')+'</td>'+
         '<td>'+esc(r.modulo)+'</td><td>'+esc(r.origen)+'</td><td class="num">'+fn(r.prendas)+'</td>'+
-        '<td><span class="tag '+cls+'">'+esc(u.estado)+'</span></td><td>'+esc(r.obs||r.observaciones)+'</td></tr>';
+        '<td><span class="tag re">'+esc(r.estado)+'</span></td><td>'+esc(r.obs)+'</td></tr>';
     }).join('') || '<tr><td colspan="9">Sin O/Corte rechazadas en el período.</td></tr>');
 }
 
@@ -1497,149 +1517,191 @@ function estadoClase(e){
   return 'sg';
 }
 function secTint(){
-  var f=TIN.filter(enP).filter(function(r){ return !excl(r.tintoreria); })
-    .map(function(r){ var o={}; for(var k in r) o[k]=r[k]; o.tintoreria=ali(r.tintoreria); return o; });
-  /* estado actual por partida: la última revisión */
-  var ult={};
-  f.forEach(function(r){ var k=r.partida.toUpperCase();
-    if(!ult[k] || (r.fecha||'') >= (ult[k].fecha||'')) ult[k]=r; });
-  var partidas=Object.keys(ult).map(function(k){ return ult[k]; });
-  var kg=sum(f,function(r){return r.peso;});
-  var apro=partidas.filter(function(r){ return /APROBADA/.test(r.estado); }).length;
-  var obs=partidas.filter(function(r){ return /OBSERVAD/.test(r.estado); }).length;
-  var rec=partidas.filter(function(r){ return /RECHAZ/.test(r.estado); }).length;
+  var R = TIN || {};
+  var mes = (R.mes||[]).filter(enPC);
 
-  var anioSp4 = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
-  var spT = MESES.map(function(m){
-    var sm=TIN.filter(function(r){ return r.anio===anioSp4&&r.mes===m&&!excl(r.tintoreria); });
-    if(!sm.length) return null;
-    var u5={}; sm.forEach(function(r){ var k5=r.partida.toUpperCase();
-      if(!u5[k5]||(r.fecha||'')>=(u5[k5].fecha||'')) u5[k5]=r; });
-    var arr5=Object.keys(u5).map(function(k5){ return u5[k5]; });
-    return arr5.length ? arr5.filter(function(r){ return /RECHAZ/.test(r.estado); }).length/arr5.length*100 : null; });
+  var partidas = sum(mes,function(m){return m.n;});
+  var rec = sum(mes,function(m){return m.rech;});
+  var obs = sum(mes,function(m){return m.obs;});
+  var apro= sum(mes,function(m){return m.apro;});
+  var sinEst = partidas - rec - obs - apro;
+
+  var kg=0, revis=0;
+  Object.keys(R.kgMes||{}).forEach(function(k){
+    var p=k.split('|');
+    if(ST.anio==='CMP' || (Number(p[0])===ST.anio && (ST.mes==='TODOS'||p[1]===ST.mes))){
+      kg+=R.kgMes[k].kg; revis+=R.kgMes[k].rev; }
+  });
+
+  var anioSp4=(ST.anio==='CMP')?ANIOS[ANIOS.length-1]:ST.anio;
+  var spT=MESES.map(function(m){
+    var f=(R.mes||[]).filter(function(x){ return x.anio===anioSp4 && x.mes===m; });
+    if(!f.length) return null;
+    var n=sum(f,function(x){return x.n;});
+    return n ? sum(f,function(x){return x.rech;})/n*100 : null;
+  });
+
   el('k4').innerHTML=
-    kpi(num(partidas.length),'Partidas revisadas',fn(f.length)+' revisiones en total','primary',null,
+    kpi(num(partidas),'Partidas revisadas',fn(revis)+' revisiones en total','primary',null,
       sparkline(spT, C.rose))+
     kpi(num(kg),'Kilos auditados',etiqueta())+
-    kpi(pct(ratio(apro,partidas.length)),'% aprobadas',fn(apro)+' partidas')+
-    kpi(pct(ratio(obs,partidas.length)),'% observadas',fn(obs)+' partidas','meta')+
-    kpi(pct(ratio(rec,partidas.length)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
+    kpi(pct(ratio(apro,partidas)),'% aprobadas',fn(apro)+' partidas')+
+    kpi(pct(ratio(obs,partidas)),'% observadas',fn(obs)+' partidas','meta')+
+    kpi(pct(ratio(rec,partidas)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
 
-  sinVerdict('v_s4');
-  var accT={}; partidas.forEach(function(r){ if(/RECHAZ/.test(r.estado) && r.tintoreria)
-    accT[r.tintoreria]=(accT[r.tintoreria]||0)+1; });
-  var cc4 = concentra(accT, rec);
-  var sinMot = partidas.filter(function(r){ return !r.defecto1 && !r.defecto2; }).length;
-  insight('i_s4', partidas.length
-    ? 'De <b>'+fn(partidas.length)+'</b> partidas revisadas, <b>'+fn(rec)+'</b> están rechazadas ('+
-      fp(ratio(rec,partidas.length))+') y <b>'+fn(obs)+'</b> observadas.'+
-      (cc4.top.length ? ' Los rechazos se concentran en '+esc(cc4.top.join(', '))+'.' : '')+
-      (sinMot ? ' <b>'+fn(sinMot)+'</b> partidas todavía no tienen motivo registrado.' : '')
-    : '');
-
-  var ge=group(partidas,function(r){return r.estado||'SIN ESTADO';});
-  var ek=claves(ge,function(v){return v.length;});
-  el('h_est4').textContent='Última revisión de cada una de las '+fn(partidas.length)+
+  /* --- estado actual --- */
+  var est = R.estados||{};
+  var ek = Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
+  var totE = sum(ek,function(k){ return est[k]; })||1;
+  el('h_est4').textContent='Última revisión de cada una de las '+fn(R.n_partidas||0)+
     ' partidas · haz clic en una barra para ver los motivos';
-  mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return ge.get(k).length/(partidas.length||1)*100; }),
+  mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return est[k]/totE*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
       return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:4,barThickness:18}]},
     options:{indexAxis:'y',layout:{padding:{right:46}},
       onClick:function(e,els){ if(els.length) abrirDetalle(ek[els[0].index]); },
       plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
-      tooltip:{callbacks:{label:function(c){ return fn(ge.get(c.label).length)+' partidas · '+c.parsed.x.toFixed(1)+'% · clic para ver el detalle'; }}}},
+      tooltip:{callbacks:{label:function(c){ return fn(est[c.label])+' partidas · '+
+        c.parsed.x.toFixed(1)+'% · clic para ver el detalle'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},y:{grid:{display:false}}}},
     plugins:[barLabels]});
 
-  var gk4=group(f,function(r){return r.tintoreria;});
-  var tk4=claves(gk4,function(v){ return sum(v,function(r){return r.peso;}); }).slice(0,10);
-  el('h_kg4').innerHTML='Peso total revisado en el período · <b>'+fn(kg)+' kg</b> en total';
+  /* --- kilos por tintorería --- */
+  var kgT = R.kgTint||{};
+  var tk4 = Object.keys(kgT).sort(function(a,b){ return kgT[b]-kgT[a]; }).slice(0,10);
+  var kgTotal = sum(Object.keys(kgT),function(k){ return kgT[k]; });
+  el('h_kg4').innerHTML='Peso total revisado · <b>'+fn(kgTotal)+' kg</b> en todo el registro';
   mk('c_kg4',{type:'bar',data:{labels:tk4.map(function(k){ return k.substring(0,26); }),
-    datasets:[{data:tk4.map(function(k){ return sum(gk4.get(k),function(r){return r.peso;}); }),
-      backgroundColor:C.emer,borderRadius:4,barThickness:16}]},
+    datasets:[{data:tk4.map(function(k){ return kgT[k]; }),backgroundColor:C.emer,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:56}},plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return fn(v)+' kg';}},
       tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' kg'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return fn(v);}}},y:{grid:{display:false}}}},
     plugins:[barLabels]});
 
-  var gp4=group(partidas,function(r){return r.tintoreria;});
-  var pk4=claves(gp4,function(v){return v.length;}).slice(0,10);
-  mk('c_tint4',{data:{labels:pk4.map(function(k){ return k.substring(0,26); }),datasets:[
-    {type:'bar',label:'Partidas revisadas',data:pk4.map(function(k){ return gp4.get(k).length; }),
+  /* --- desempeño por tintorería --- */
+  var tints = (R.tint||[]).slice().sort(function(a,b){ return b.n-a.n; });
+  var pk4 = tints.slice(0,10);
+  mk('c_tint4',{data:{labels:pk4.map(function(t){ return t.nombre.substring(0,26); }),datasets:[
+    {type:'bar',label:'Partidas revisadas',data:pk4.map(function(t){return t.n;}),
      backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:3},
-    {type:'bar',label:'Partidas rechazadas',data:pk4.map(function(k){
-      return gp4.get(k).filter(function(r){ return /RECHAZ/.test(r.estado); }).length; }),
+    {type:'bar',label:'Partidas rechazadas',data:pk4.map(function(t){return t.rech;}),
      backgroundColor:C.rose,order:2},
-    {type:'line',label:'% de partidas rechazadas',yAxisID:'y1',order:1,borderColor:C.taupe,backgroundColor:C.taupe,
-     borderWidth:2.5,tension:.3,pointRadius:3,
-     data:pk4.map(function(k){ var s=gp4.get(k);
-       return ratio(s.filter(function(r){ return /RECHAZ/.test(r.estado); }).length,s.length)*100; })}]},
-    options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
-      tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?c.parsed.y.toFixed(1)+'%':fn(c.parsed.y)); }}}},
+    {type:'line',label:'% de partidas rechazadas',yAxisID:'y1',order:1,borderColor:C.taupe,
+     backgroundColor:C.taupe,borderWidth:2.5,tension:.3,pointRadius:3,
+     pointBorderColor:'#fff',pointBorderWidth:1.5,
+     data:pk4.map(function(t){ return ratio(t.rech,t.n)*100; })}]},
+    options:{plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+      (c.dataset.yAxisID==='y1'?c.parsed.y.toFixed(1)+'%':fn(c.parsed.y)); }}}},
       scales:{y:{beginAtZero:true,grid:{color:C.wl}},
         y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-        x:{grid:{display:false},ticks:{font:{size:10}}}}},
-    plugins:[pointLabels]});
+        x:{grid:{display:false},ticks:{font:{size:10}}}}}});
 
-  var filasT = pk4.map(function(k){ var g4=gp4.get(k);
-    var r4=g4.filter(function(r){ return /RECHAZ/.test(r.estado); }).length;
-    return {nombre:k, valor:ratio(r4,g4.length)*100,
-      sub:r4+' de '+g4.length+' partidas · '+fn(sum(f.filter(function(x){return x.tintoreria===k;}),
-        function(x){return x.peso;}))+' kg'}; })
+  var filasT = tints.map(function(t){
+    return {nombre:t.nombre, valor:ratio(t.rech,t.n)*100,
+      sub:t.rech+' de '+t.n+' partidas · '+fn(t.kg)+' kg'}; })
     .sort(function(a,b){ return b.valor-a.valor; });
   ranking('rk4', filasT, META_TINT, function(v){ return v.toFixed(1)+'%'; });
+
   if(filasT.length>=2){
-    var kgTop=tk4.length?tk4[0]:'';
+    var kgTop = tk4.length?tk4[0]:'';
     icards('ic4',
       {etq:'Menor rechazo', nombre:filasT[filasT.length-1].nombre,
        valorTxt:filasT[filasT.length-1].valor.toFixed(1)+'%', sub:filasT[filasT.length-1].sub, forzar:''},
       {etq:'Mayor rechazo', nombre:filasT[0].nombre,
        valorTxt:filasT[0].valor.toFixed(1)+'%', sub:filasT[0].sub, forzar:'bad'},
-      kgTop?{etq:'Más kilos auditados', nombre:kgTop,
-       valorTxt:fn(sum(gk4.get(kgTop),function(r){return r.peso;}))+' kg',
-       sub:'peso revisado en el período', forzar:''}:null,
+      kgTop?{etq:'Más kilos auditados', nombre:kgTop, valorTxt:fn(kgT[kgTop])+' kg',
+       sub:'peso revisado en todo el registro', forzar:''}:null,
       META_TINT);
   } else { var c4=el('ic4'); if(c4) c4.innerHTML=''; }
 
+  sinVerdict('v_s4');
+  var accT={}; tints.forEach(function(t){ if(t.rech) accT[t.nombre]=t.rech; });
+  var cc4=concentra(accT, rec);
+  insight('i_s4', partidas
+    ? 'De <b>'+fn(partidas)+'</b> partidas revisadas, <b>'+fn(rec)+'</b> están rechazadas ('+
+      fp(ratio(rec,partidas))+') y <b>'+fn(obs)+'</b> observadas.'+
+      (cc4.top.length ? ' Los rechazos se concentran en '+esc(cc4.top.join(', '))+'.' : '')+
+      (sinEst>0 ? ' <b>'+fn(sinEst)+'</b> partidas sin un estado válido.' : '')
+    : '');
+
+  /* --- evolución mensual --- */
   var anios4=(ST.anio==='CMP')?ANIOS:[ST.anio], ds4=[];
   anios4.forEach(function(a,i){
     var pm=MESES.map(function(m){
-      var s=TIN.filter(function(r){ return r.anio===a&&r.mes===m&&!excl(r.tintoreria); });
-      var u={}; s.forEach(function(r){ var k=r.partida.toUpperCase();
-        if(!u[k]||(r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
-      return Object.keys(u).map(function(k){ return u[k]; });
+      var f=(R.mes||[]).filter(function(x){ return x.anio===a && x.mes===m; });
+      if(!f.length) return null;
+      return {n:sum(f,function(x){return x.n;}), rech:sum(f,function(x){return x.rech;})};
     });
-    ds4.push({type:'bar',label:'Partidas '+(anios4.length>1?a:''),data:pm.map(function(s){return s.length;}),
+    ds4.push({type:'bar',label:'Partidas '+(anios4.length>1?a:''),
+      data:pm.map(function(x){ return x?x.n:null; }),
       backgroundColor:i?C.warm:C.wl,borderColor:C.warm,borderWidth:1,order:3});
     ds4.push({type:'line',label:'% de partidas rechazadas '+(anios4.length>1?a:''),yAxisID:'y1',order:1,
-      borderColor:[C.rose,C.slate][i%2],backgroundColor:[C.rose,C.slate][i%2],borderWidth:2.5,tension:.3,
-      pointRadius:3,spanGaps:true,
-      data:pm.map(function(s){ if(!s.length) return null;
-        return s.filter(function(r){ return /RECHAZ/.test(r.estado); }).length/s.length*100; })});
+      borderColor:[C.rose,C.slate][i%2],backgroundColor:[C.rose,C.slate][i%2],borderWidth:2.5,
+      tension:.3,pointRadius:3,spanGaps:true,pointBorderColor:'#fff',pointBorderWidth:1.5,
+      data:pm.map(function(x){ return (x&&x.n)?x.rech/x.n*100:null; })});
   });
   mk('c_tend4',realzarLineas({data:{labels:M3,datasets:ds4},options:{
-    plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
-      tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%'):fn(c.parsed.y)); }}}},
+    plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+      (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%'):fn(c.parsed.y)); }}}},
     scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'Partidas'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-      x:{grid:{display:false}}}},
-    plugins:[pointLabels]}));
+      x:{grid:{display:false}}}}}),[pointLabels]);
 
-  var revs={}; f.forEach(function(r){ var k=r.partida.toUpperCase(); revs[k]=(revs[k]||0)+1; });
-  var lista=partidas.slice().sort(function(a,b){ return (b.fecha||'')<(a.fecha||'')?-1:1; });
-  el('h_t4').textContent=fn(lista.length)+' partidas · '+etiqueta()+' · '+fn(kg)+' kg auditados';
+  /* la tabla de partidas se pide aparte: es lo pesado y solo se ve al abrir esa pestaña */
+  pedirDetalleTint();
+}
+
+var DET_TINT = {clave:'', filas:null, pidiendo:false};
+function pedirDetalleTint(){
+  var clave = ST.anio+'|'+ST.mes;
+  if(DET_TINT.clave===clave && DET_TINT.filas){ pintarDetalleTint(); return; }
+  if(DET_TINT.pidiendo) return;
+  DET_TINT.pidiendo = true;
+  el('h_t4').textContent='Trayendo el detalle…';
+  var d1='', d2='';
+  if(ST.anio!=='CMP'){
+    var im = (ST.mes==='TODOS') ? -1 : MESES.indexOf(ST.mes);
+    var p2=function(n){ return ('0'+n).slice(-2); };
+    if(im<0){ d1=ST.anio+'-01-01'; d2=ST.anio+'-12-31'; }
+    else{
+      var ult=new Date(ST.anio, im+1, 0).getDate();
+      d1=ST.anio+'-'+p2(im+1)+'-01'; d2=ST.anio+'-'+p2(im+1)+'-'+p2(ult);
+    }
+  }
+  jsonp(API+'?action=rep_datos&desde='+d1+'&hasta='+d2, function(res){
+    DET_TINT.pidiendo=false;
+    DET_TINT.clave=clave;
+    DET_TINT.filas=(res&&res.ok)?(res.filas||[]):[];
+    pintarDetalleTint();
+  }, function(){
+    DET_TINT.pidiendo=false;
+    el('h_t4').textContent='No se pudo traer el detalle.';
+  });
+}
+function pintarDetalleTint(){
+  var f = DET_TINT.filas||[];
+  /* estado actual por partida */
+  var u={};
+  f.forEach(function(r){ var k=String(r.partida).toUpperCase();
+    if(!u[k] || (r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
+  var revs={}; f.forEach(function(r){ var k=String(r.partida).toUpperCase(); revs[k]=(revs[k]||0)+1; });
+  var lista=Object.keys(u).map(function(k){ return u[k]; })
+    .sort(function(a,b){ return (b.fecha||'')<(a.fecha||'')?-1:1; });
+  el('h_t4').textContent=fn(lista.length)+' partidas · '+etiqueta()+' · '+
+    fn(sum(f,function(r){return N(r.peso);}))+' kg auditados';
   el('t_part').innerHTML='<tr><th>Última revisión</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
     '<th>Grupo</th><th>Color</th><th class="num">Peso kg</th><th>Auditores</th><th>Estado</th>'+
     '<th class="num">Revisiones</th><th>Observaciones</th></tr>'+
     (lista.map(function(r){
-      return '<tr><td>'+fdmy(r.fecha)+'</td><td>'+esc(r.tintoreria.substring(0,24))+'</td>'+
-        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(r.articulo.substring(0,28))+'</td>'+
-        '<td>'+esc(r.grupo)+'</td><td>'+esc(r.color.substring(0,20))+'</td>'+
-        '<td class="num">'+fn(r.peso)+'</td><td>'+esc(r.auditores.substring(0,18))+'</td>'+
+      return '<tr><td>'+fdmy(r.fecha)+'</td><td>'+esc(String(r.tintoreria).substring(0,24))+'</td>'+
+        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(String(r.articulo).substring(0,28))+'</td>'+
+        '<td>'+esc(r.grupo)+'</td><td>'+esc(String(r.color).substring(0,20))+'</td>'+
+        '<td class="num">'+fn(N(r.peso))+'</td><td>'+esc(String(r.auditores).substring(0,18))+'</td>'+
         '<td><span class="tag '+estadoClase(r.estado)+'">'+esc(r.estado)+'</span></td>'+
-        '<td class="num">'+(revs[r.partida.toUpperCase()]||1)+'</td><td>'+esc(r.obs.substring(0,50))+'</td></tr>';
+        '<td class="num">'+(revs[String(r.partida).toUpperCase()]||1)+'</td>'+
+        '<td>'+esc(String(r.obs).substring(0,50))+'</td></tr>';
     }).join('') || '<tr><td colspan="11">Sin partidas en el período.</td></tr>');
 }
 
@@ -1647,121 +1709,41 @@ function secTint(){
 var MO = {estado:'', base:[], tint:'', fam:''};
 
 function abrirDetalle(estado){
-  var f = TIN.filter(enP).filter(function(r){ return !excl(r.tintoreria); })
-    .map(function(r){ var o={}; for(var k in r) o[k]=r[k]; o.tintoreria=ali(r.tintoreria); return o; });
-  var ult = {};
-  f.forEach(function(r){ var k=r.partida.toUpperCase();
-    if(!ult[k] || (r.fecha||'') >= (ult[k].fecha||'')) ult[k]=r; });
-  MO.estado = estado;
-  MO.base = Object.keys(ult).map(function(k){ return ult[k]; })
-    .filter(function(r){ return (r.estado||'SIN ESTADO') === estado; });
-  MO.tint=''; MO.fam='';
-
-  var ts={}, fs={};
-  MO.base.forEach(function(r){ if(r.tintoreria) ts[r.tintoreria]=1;
-    [r.familia1,r.familia2].forEach(function(x){ if(x) fs[x]=1; }); });
-  el('mo_tint').innerHTML='<option value="">Todas</option>'+
-    Object.keys(ts).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
-  el('mo_fam').innerHTML='<option value="">Todas</option>'+
-    Object.keys(fs).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
-
+  MO.estado = estado; MO.tint=''; MO.fam='';
   el('mo_tit').textContent = estado;
   el('modal').classList.add('on');
-  pintarDetalle();
-}
+  el('mo_sub').textContent = 'Trayendo el detalle…';
+  el('mo_kpis').innerHTML=''; el('mo_tabla').innerHTML='';
 
-function motivosDe(r){
-  var out=[];
-  if(r.defecto1) out.push({fam:r.familia1, def:r.defecto1});
-  if(r.defecto2) out.push({fam:r.familia2, def:r.defecto2});
-  return out;
-}
+  /* el detalle de este estado se pide filtrado al tablero */
+  var d1='', d2='';
+  if(ST.anio!=='CMP'){
+    var im=(ST.mes==='TODOS')?-1:MESES.indexOf(ST.mes), p2=function(n){return ('0'+n).slice(-2);};
+    if(im<0){ d1=ST.anio+'-01-01'; d2=ST.anio+'-12-31'; }
+    else { var ult=new Date(ST.anio,im+1,0).getDate();
+      d1=ST.anio+'-'+p2(im+1)+'-01'; d2=ST.anio+'-'+p2(im+1)+'-'+p2(ult); }
+  }
+  jsonp(API+'?action=rep_datos&desde='+d1+'&hasta='+d2+'&estado='+encodeURIComponent(estado),
+    function(res){
+      var f=(res&&res.ok)?(res.filas||[]):[];
+      /* estado actual por partida dentro de lo recibido */
+      var u={};
+      f.forEach(function(r){ var k=String(r.partida).toUpperCase();
+        if(!u[k] || (r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
+      MO.base = Object.keys(u).map(function(k){ return u[k]; })
+        .filter(function(r){ return !excl(r.tintoreria); })
+        .map(function(r){ var o={}; for(var x in r) o[x]=r[x]; o.tintoreria=ali(r.tintoreria); return o; });
 
-function pintarDetalle(){
-  var d = MO.base.filter(function(r){
-    if(MO.tint && r.tintoreria !== MO.tint) return false;
-    if(MO.fam && r.familia1 !== MO.fam && r.familia2 !== MO.fam) return false;
-    return true;
-  });
-  var kg = sum(d,function(r){return r.peso;});
-  var conMot = d.filter(function(r){ return motivosDe(r).length; }).length;
-
-  el('mo_sub').textContent = fn(d.length)+' partidas · '+fn(kg)+' kg · '+etiqueta();
-  el('mo_kpis').innerHTML =
-    kpi(fn(d.length),'Partidas',MO.estado,'primary')+
-    kpi(fn(kg),'Kilos','del período')+
-    kpi(fn(conMot),'Con motivo registrado', d.length?fp(ratio(conMot,d.length),0)+' del total':'')+
-    kpi(fn(d.length-conMot),'Sin motivo','pendientes de completar','meta');
-
-  /* motivos */
-  var cm={};
-  d.forEach(function(r){ motivosDe(r).forEach(function(m){ cm[m.def]=(cm[m.def]||0)+1; }); });
-  var mk2=Object.keys(cm).sort(function(a,b){ return cm[b]-cm[a]; }).slice(0,12);
-  var totM=0; Object.keys(cm).forEach(function(k){ totM+=cm[k]; });
-  el('mo_h1').textContent = totM ? fn(totM)+' motivo(s) registrado(s)'
-    : 'Todavía no hay motivos registrados en estas partidas';
-  mk('mo_c1',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){ return cm[k]; }),
-    backgroundColor:C.taupe,borderRadius:4,barThickness:16}]},
-    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
-      barLabels:{fmt:function(v){return fn(v);}},
-      tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
-      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
-    plugins:[barLabels]});
-
-  /* por tintorería */
-  var gt=group(d,function(r){return r.tintoreria;});
-  var tk=claves(gt,function(v){return v.length;}).slice(0,10);
-  mk('mo_c2',{type:'bar',data:{labels:tk.map(function(k){return k.substring(0,24);}),
-    datasets:[{data:tk.map(function(k){ return gt.get(k).length; }),
-      backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
-    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
-      barLabels:{fmt:function(v){return fn(v);}},
-      tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
-      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
-    plugins:[barLabels]});
-
-  /* tendencia: cuenta y % sobre el total revisado de cada mes */
-  var anio = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
-  var serie = MESES.map(function(m){
-    var todas = TIN.filter(function(r){ return r.anio===anio && r.mes===m && !excl(r.tintoreria); });
-    var u={}; todas.forEach(function(r){ var k=r.partida.toUpperCase();
-      if(!u[k] || (r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
-    var arr=Object.keys(u).map(function(k){ return u[k]; });
-    var enEst=arr.filter(function(r){
-      if((r.estado||'SIN ESTADO')!==MO.estado) return false;
-      if(MO.tint && ali(r.tintoreria)!==MO.tint) return false;
-      if(MO.fam && r.familia1!==MO.fam && r.familia2!==MO.fam) return false;
-      return true; });
-    return {n:enEst.length, tot:arr.length};
-  });
-  el('mo_h3').textContent = 'Año '+anio+' · partidas en estado '+MO.estado+' y su peso sobre el total revisado del mes';
-  mk('mo_c3',{data:{labels:M3,datasets:[
-    {type:'bar',label:'Partidas',data:serie.map(function(x){return x.n;}),
-     backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:2},
-    {type:'line',label:'% del total del mes',yAxisID:'y1',order:1,borderColor:C.taupe,
-     backgroundColor:C.taupe,borderWidth:2.5,tension:.3,pointRadius:3,spanGaps:true,
-     data:serie.map(function(x){ return x.tot ? x.n/x.tot*100 : null; })}]},
-    options:{plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
-      tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
-        (c.dataset.yAxisID==='y1' ? (c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%') : fn(c.parsed.y)); }}}},
-      scales:{y:{beginAtZero:true,grid:{color:C.wl}},
-        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-        x:{grid:{display:false}}}}});
-
-  /* tabla */
-  var filas=d.slice().sort(function(a,b){ return (b.fecha||'')<(a.fecha||'')?-1:1; });
-  el('mo_h4').textContent = fn(filas.length)+' partidas';
-  el('mo_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
-    '<th>Grupo</th><th class="num">Peso kg</th><th>Familia</th><th>Motivo</th><th>Observaciones</th></tr>'+
-    (filas.map(function(r){
-      var m=motivosDe(r);
-      return '<tr><td>'+fdmy(r.fecha)+'</td><td>'+esc(r.tintoreria.substring(0,22))+'</td>'+
-        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(String(r.articulo).substring(0,26))+'</td>'+
-        '<td>'+esc(r.grupo)+'</td><td class="num">'+fn(r.peso)+'</td>'+
-        '<td>'+esc(m.map(function(x){return x.fam;}).join(' / '))+'</td>'+
-        '<td>'+esc(m.map(function(x){return x.def;}).join(' / '))+'</td>'+
-        '<td>'+esc(String(r.obs).substring(0,60))+'</td></tr>';
-    }).join('') || '<tr><td colspan="9">Sin partidas con estos filtros.</td></tr>');
+      var ts={}, fs={};
+      MO.base.forEach(function(r){ if(r.tintoreria) ts[r.tintoreria]=1;
+        [r.familia1,r.familia2].forEach(function(x){ if(x) fs[String(x).toUpperCase()]=1; }); });
+      el('mo_tint').innerHTML='<option value="">Todas</option>'+
+        Object.keys(ts).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+      el('mo_fam').innerHTML='<option value="">Todas</option>'+
+        Object.keys(fs).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+      pintarDetalle();
+    },
+    function(){ el('mo_sub').textContent='No se pudo traer el detalle.'; });
 }
 
 function cerrarDetalle(){ el('modal').classList.remove('on'); }
@@ -1769,7 +1751,7 @@ function cerrarDetalle(){ el('modal').classList.remove('on'); }
 function exportarDetalle(){
   var d = MO.base.filter(function(r){
     if(MO.tint && r.tintoreria !== MO.tint) return false;
-    if(MO.fam && r.familia1 !== MO.fam && r.familia2 !== MO.fam) return false;
+    if(MO.fam && String(r.familia1).toUpperCase()!==MO.fam && String(r.familia2).toUpperCase()!==MO.fam) return false;
     return true; });
   if(!d.length) return;
   var out = d.map(function(r){
@@ -1975,10 +1957,9 @@ function render(){
     if(ST.sec==='s4' && CARGA.s4) secTint();
     var p=[];
     if(CARGA.s1) p.push('segundas '+SEG.tot.length+' meses');
-    if(CARGA.s2) p.push('auditoría de Corte '+fn(COR.aud.length)+' registros · liquidación '+fn(COR.liq.length)+
-      ' · inspecciones '+fn(COR.ins.length));
+    if(CARGA.s2) p.push('auditoría de Corte '+fn(COR.n_oc||0)+' O/Corte · resumen calculado en el tablero');
     if(CARGA.s3) p.push('planillas con defectos '+fn(DEF.cab.length));
-    if(CARGA.s4) p.push('revisiones de tintorería '+fn(TIN.length));
+    if(CARGA.s4) p.push('tintorería '+fn(TIN.n_partidas||0)+' partidas y '+fn(TIN.n_revisiones||0)+' revisiones');
     el('pie').innerHTML='Fuente: Google Sheet LIVES_SEGUNDAS_2026 · '+p.join(' · ')+
       '. Cada indicador se trae al abrirlo, por eso el tablero abre rápido.';
     if(RARAS.length){
