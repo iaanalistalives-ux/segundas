@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.0 · 11-09-2026';
+var VERSION = 'v3.1 · 16-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1706,16 +1706,109 @@ function pintarDetalleTint(){
 }
 
 /* ---------------- detalle por estado (ventana emergente) ---------------- */
-var MO = {estado:'', base:[], tint:'', fam:''};
+var MO = {estado:'', base:[], defs:[], tint:'', fam:'', pide:0, cortado:false};
+
+function motivosDe(r){
+  var out=[];
+  if(r.defecto1) out.push({fam:String(r.familia1||'').toUpperCase(), def:String(r.defecto1).toUpperCase()});
+  if(r.defecto2) out.push({fam:String(r.familia2||'').toUpperCase(), def:String(r.defecto2).toUpperCase()});
+  return out;
+}
 
 function abrirDetalle(estado){
-  MO.estado = estado; MO.tint=''; MO.fam='';
+  MO.estado = estado; MO.tint=''; MO.fam=''; MO.base=[]; MO.cortado=false;
   el('mo_tit').textContent = estado;
   el('modal').classList.add('on');
-  el('mo_sub').textContent = 'Trayendo el detalle…';
-  el('mo_kpis').innerHTML=''; el('mo_tabla').innerHTML='';
 
-  /* el detalle de este estado se pide filtrado al tablero */
+  /* Los gráficos salen del resumen que ya está cargado: no hay nada que esperar. */
+  var defs = (TIN.defectos||[]).filter(function(d){ return d.estado===estado; });
+  MO.defs = defs;
+
+  var ts={}, fs={};
+  defs.forEach(function(d){ if(d.tint) ts[d.tint]=1; if(d.familia) fs[d.familia]=1; });
+  el('mo_tint').innerHTML='<option value="">Todas</option>'+
+    Object.keys(ts).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+  el('mo_fam').innerHTML='<option value="">Todas</option>'+
+    Object.keys(fs).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+
+  pintarDetalle();
+  pedirTablaModal();
+}
+
+function pintarDetalle(){
+  var defs = (MO.defs||[]).filter(function(d){
+    if(MO.tint && d.tint!==MO.tint) return false;
+    if(MO.fam && d.familia!==MO.fam) return false;
+    return true; });
+
+  var nTot = sum(defs,function(d){ return d.n; });
+  var kgTot = sum(defs,function(d){ return d.kg||0; });
+  var conMot = sum(defs.filter(function(d){ return d.defecto; }),function(d){ return d.n; });
+
+  el('mo_sub').textContent = fn(nTot)+' partidas · '+fn(kgTot)+' kg · '+etiqueta();
+  el('mo_kpis').innerHTML =
+    kpi(num(nTot),'Partidas',MO.estado,'primary')+
+    kpi(num(kgTot),'Kilos','del período')+
+    kpi(num(conMot),'Con motivo registrado', nTot?fp(ratio(conMot,nTot),0)+' del total':'')+
+    kpi(num(nTot-conMot),'Sin motivo','pendientes de completar','meta');
+
+  var cm={};
+  defs.forEach(function(d){ if(d.defecto) cm[d.defecto]=(cm[d.defecto]||0)+d.n; });
+  var mk2=Object.keys(cm).sort(function(a,b){ return cm[b]-cm[a]; }).slice(0,12);
+  el('mo_h1').textContent = conMot ? fn(conMot)+' partidas con motivo registrado'
+    : 'Todavía no hay motivos registrados en estas partidas';
+  mk('mo_c1',{type:'bar',data:{labels:mk2,datasets:[{data:mk2.map(function(k){ return cm[k]; }),
+    backgroundColor:C.taupe,borderRadius:4,barThickness:16}]},
+    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
+      barLabels:{fmt:function(v){return fn(v);}},
+      tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
+      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
+    plugins:[barLabels]});
+
+  var ct={};
+  defs.forEach(function(d){ if(d.tint) ct[d.tint]=(ct[d.tint]||0)+d.n; });
+  var tk=Object.keys(ct).sort(function(a,b){ return ct[b]-ct[a]; }).slice(0,10);
+  mk('mo_c2',{type:'bar',data:{labels:tk.map(function(k){return k.substring(0,24);}),
+    datasets:[{data:tk.map(function(k){ return ct[k]; }),
+      backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
+    options:{indexAxis:'y',layout:{padding:{right:40}},plugins:{legend:{display:false},
+      barLabels:{fmt:function(v){return fn(v);}},
+      tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' partida(s)'; }}}},
+      scales:{x:{min:0,grid:{color:C.wl}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
+    plugins:[barLabels]});
+
+  var anio = (ST.anio==='CMP') ? ANIOS[ANIOS.length-1] : ST.anio;
+  var serie = MESES.map(function(m){
+    var f2=(TIN.mes||[]).filter(function(x){ return x.anio===anio && x.mes===m; });
+    if(!f2.length) return {n:0, tot:0};
+    var tot=sum(f2,function(x){return x.n;});
+    var n = /RECHAZ/.test(MO.estado) ? sum(f2,function(x){return x.rech;})
+      : (/OBSERVAD/.test(MO.estado) ? sum(f2,function(x){return x.obs;})
+      : (/APROBADA/.test(MO.estado) ? sum(f2,function(x){return x.apro;}) : 0));
+    return {n:n, tot:tot};
+  });
+  el('mo_h3').textContent = 'Año '+anio+' · partidas en estado '+MO.estado+
+    ' y su peso sobre el total revisado del mes'+
+    ((MO.tint||MO.fam)?' (la tendencia no aplica los filtros de arriba)':'');
+  mk('mo_c3',realzarLineas({data:{labels:M3,datasets:[
+    {type:'bar',label:'Partidas',data:serie.map(function(x){return x.n;}),
+     backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:2},
+    {type:'line',label:'% del total del mes',yAxisID:'y1',order:1,borderColor:C.taupe,
+     backgroundColor:C.taupe,borderWidth:2.5,tension:.3,pointRadius:3,spanGaps:true,
+     pointBorderColor:'#fff',pointBorderWidth:1.5,
+     data:serie.map(function(x){ return x.tot ? x.n/x.tot*100 : null; })}]},
+    options:{plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+      (c.dataset.yAxisID==='y1' ? (c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%') : fn(c.parsed.y)); }}}},
+      scales:{y:{beginAtZero:true,grid:{color:C.wl}},
+        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
+        x:{grid:{display:false}}}}}),[pointLabels]);
+
+  pintarTablaModal();
+}
+
+/* La tabla del modal se trae aparte y con tope: es lo único pesado. */
+var MO_TOPE = 400;
+function pedirTablaModal(){
   var d1='', d2='';
   if(ST.anio!=='CMP'){
     var im=(ST.mes==='TODOS')?-1:MESES.indexOf(ST.mes), p2=function(n){return ('0'+n).slice(-2);};
@@ -1723,27 +1816,37 @@ function abrirDetalle(estado){
     else { var ult=new Date(ST.anio,im+1,0).getDate();
       d1=ST.anio+'-'+p2(im+1)+'-01'; d2=ST.anio+'-'+p2(im+1)+'-'+p2(ult); }
   }
-  jsonp(API+'?action=rep_datos&desde='+d1+'&hasta='+d2+'&estado='+encodeURIComponent(estado),
+  el('mo_h4').textContent='Trayendo las partidas…';
+  var pide = ++MO.pide;
+  jsonp(API+'?action=rep_datos&limite='+MO_TOPE+'&desde='+d1+'&hasta='+d2+
+        '&estado='+encodeURIComponent(MO.estado)+
+        '&tint='+encodeURIComponent(MO.tint),
     function(res){
-      var f=(res&&res.ok)?(res.filas||[]):[];
-      /* estado actual por partida dentro de lo recibido */
-      var u={};
-      f.forEach(function(r){ var k=String(r.partida).toUpperCase();
-        if(!u[k] || (r.fecha||'')>=(u[k].fecha||'')) u[k]=r; });
-      MO.base = Object.keys(u).map(function(k){ return u[k]; })
-        .filter(function(r){ return !excl(r.tintoreria); })
-        .map(function(r){ var o={}; for(var x in r) o[x]=r[x]; o.tintoreria=ali(r.tintoreria); return o; });
-
-      var ts={}, fs={};
-      MO.base.forEach(function(r){ if(r.tintoreria) ts[r.tintoreria]=1;
-        [r.familia1,r.familia2].forEach(function(x){ if(x) fs[String(x).toUpperCase()]=1; }); });
-      el('mo_tint').innerHTML='<option value="">Todas</option>'+
-        Object.keys(ts).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
-      el('mo_fam').innerHTML='<option value="">Todas</option>'+
-        Object.keys(fs).sort().map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
-      pintarDetalle();
+      if(pide!==MO.pide) return;
+      MO.base = (res&&res.ok)?(res.filas||[]):[];
+      MO.cortado = !!(res&&res.cortado);
+      pintarTablaModal();
     },
-    function(){ el('mo_sub').textContent='No se pudo traer el detalle.'; });
+    function(){ if(pide===MO.pide) el('mo_h4').textContent='No se pudo traer el detalle.'; });
+}
+
+function pintarTablaModal(){
+  var d = (MO.base||[]).filter(function(r){
+    if(MO.fam && String(r.familia1).toUpperCase()!==MO.fam && String(r.familia2).toUpperCase()!==MO.fam) return false;
+    return true; });
+  el('mo_h4').textContent = fn(d.length)+' partidas'+
+    (MO.cortado ? ' · se muestran las '+MO_TOPE+' más recientes; usa los filtros o descarga el Excel para ver todo' : '');
+  el('mo_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
+    '<th>Grupo</th><th class="num">Peso kg</th><th>Familia</th><th>Motivo</th><th>Observaciones</th></tr>'+
+    (d.map(function(r){
+      var m=motivosDe(r);
+      return '<tr><td>'+fdmy(r.fecha)+'</td><td>'+esc(String(r.tintoreria).substring(0,22))+'</td>'+
+        '<td><b>'+esc(r.partida)+'</b></td><td>'+esc(String(r.articulo).substring(0,26))+'</td>'+
+        '<td>'+esc(r.grupo)+'</td><td class="num">'+fn(N(r.peso))+'</td>'+
+        '<td>'+esc(m.map(function(x){return x.fam;}).join(' / '))+'</td>'+
+        '<td>'+esc(m.map(function(x){return x.def;}).join(' / '))+'</td>'+
+        '<td>'+esc(String(r.obs).substring(0,60))+'</td></tr>';
+    }).join('') || '<tr><td colspan="9">Sin partidas con estos filtros.</td></tr>');
 }
 
 function cerrarDetalle(){ el('modal').classList.remove('on'); }
@@ -2020,7 +2123,7 @@ function exportar(){
 el('btnExport').onclick=exportar;
 el('mo_cerrar').onclick=cerrarDetalle;
 el('modal').onclick=function(e){ if(e.target===el('modal')) cerrarDetalle(); };
-el('mo_tint').onchange=function(){ MO.tint=T(el('mo_tint').value); pintarDetalle(); };
+el('mo_tint').onchange=function(){ MO.tint=T(el('mo_tint').value); pintarDetalle(); pedirTablaModal(); };
 el('mo_fam').onchange=function(){ MO.fam=T(el('mo_fam').value); pintarDetalle(); };
 el('mo_excel').onclick=exportarDetalle;
 try{ document.addEventListener('keydown',function(e){ if(e.key==='Escape') cerrarDetalle(); }); }catch(e){}
