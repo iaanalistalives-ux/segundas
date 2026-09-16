@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.1 · 16-09-2026';
+var VERSION = 'v3.2 · 16-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1751,6 +1751,7 @@ function pintarDetalle(){
     kpi(num(kgTot),'Kilos','del período')+
     kpi(num(conMot),'Con motivo registrado', nTot?fp(ratio(conMot,nTot),0)+' del total':'')+
     kpi(num(nTot-conMot),'Sin motivo','pendientes de completar','meta');
+  animarKPIs('mo_kpis');   /* estos KPI nacen después del render: hay que arrancarlos aquí */
 
   var cm={};
   defs.forEach(function(d){ if(d.defecto) cm[d.defecto]=(cm[d.defecto]||0)+d.n; });
@@ -1924,9 +1925,11 @@ function countUp(e){
   }
   requestAnimationFrame(paso);
 }
-function animarKPIs(){
+function animarKPIs(dentro){
   try{
-    Array.prototype.forEach.call(document.querySelectorAll('.kpi .v[data-count]'), countUp);
+    var raiz = dentro ? el(dentro) : document;
+    if(!raiz) return;
+    Array.prototype.forEach.call(raiz.querySelectorAll('.kpi .v[data-count]'), countUp);
   }catch(e){}
 }
 
