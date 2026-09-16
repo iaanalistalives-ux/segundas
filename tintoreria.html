@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.2 · 16-09-2026';
+var VERSION = 'v3.3 · 16-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -758,7 +758,8 @@ function ajustarEmbebido(){
 }
 
 function cargarAlias(){
-  jsonp(API+'?action=catalogos', function(res){
+  /* acción liviana: solo lee la hoja CATALOGOS, no las de datos */
+  jsonp(API+'?action=alias', function(res){
     if(!res||!res.ok||!res.catalogos) return;
     (res.catalogos.ALIAS||[]).forEach(function(v){
       var p2=String(v).split('='); if(p2.length===2) ALIAS[T(p2[0]).toUpperCase()]=T(p2[1]).toUpperCase();
@@ -1331,12 +1332,12 @@ function secCorte(){
        ' O/Corte rechazadas con tela registrada'+(tel.length>10?' ('+tel.length+' códigos en total)':''))
     : 'Sin O/Corte rechazadas con código de tela';
 
-  pedirDetalleCorte();
 }
 
 /* La tabla de detalle se pide aparte: es la parte pesada y solo se mira al abrir esa pestaña. */
 var DET_CORTE = {clave:'', filas:null, pidiendo:false};
 function pedirDetalleCorte(){
+  if(ST.sec!=='s2') return;
   var clave = ST.anio+'|'+ST.mes;
   if(DET_CORTE.clave===clave && DET_CORTE.filas){ pintarDetalleCorte(); return; }
   if(DET_CORTE.pidiendo) return;
@@ -1649,12 +1650,11 @@ function secTint(){
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
       x:{grid:{display:false}}}}}),[pointLabels]);
 
-  /* la tabla de partidas se pide aparte: es lo pesado y solo se ve al abrir esa pestaña */
-  pedirDetalleTint();
 }
 
 var DET_TINT = {clave:'', filas:null, pidiendo:false};
 function pedirDetalleTint(){
+  if(ST.sec!=='s4') return;
   var clave = ST.anio+'|'+ST.mes;
   if(DET_TINT.clave===clave && DET_TINT.filas){ pintarDetalleTint(); return; }
   if(DET_TINT.pidiendo) return;
@@ -1670,10 +1670,11 @@ function pedirDetalleTint(){
       d1=ST.anio+'-'+p2(im+1)+'-01'; d2=ST.anio+'-'+p2(im+1)+'-'+p2(ult);
     }
   }
-  jsonp(API+'?action=rep_datos&desde='+d1+'&hasta='+d2, function(res){
+  jsonp(API+'?action=rep_datos&limite=600&desde='+d1+'&hasta='+d2, function(res){
     DET_TINT.pidiendo=false;
     DET_TINT.clave=clave;
     DET_TINT.filas=(res&&res.ok)?(res.filas||[]):[];
+    DET_TINT.cortado=!!(res&&res.cortado);
     pintarDetalleTint();
   }, function(){
     DET_TINT.pidiendo=false;
@@ -1690,7 +1691,8 @@ function pintarDetalleTint(){
   var lista=Object.keys(u).map(function(k){ return u[k]; })
     .sort(function(a,b){ return (b.fecha||'')<(a.fecha||'')?-1:1; });
   el('h_t4').textContent=fn(lista.length)+' partidas · '+etiqueta()+' · '+
-    fn(sum(f,function(r){return N(r.peso);}))+' kg auditados';
+    fn(sum(f,function(r){return N(r.peso);}))+' kg auditados'+
+    (DET_TINT.cortado?' · se muestran las más recientes; para el listado completo usa Partidas revisadas':'');
   el('t_part').innerHTML='<tr><th>Última revisión</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
     '<th>Grupo</th><th>Color</th><th class="num">Peso kg</th><th>Auditores</th><th>Estado</th>'+
     '<th class="num">Revisiones</th><th>Observaciones</th></tr>'+
@@ -1971,6 +1973,9 @@ function icards(id, mejor, peor, tercera, meta){
 
 /* Pestañas por bloque temático dentro de cada indicador */
 function bloque(prefijo, i, btn){
+  /* el detalle es lo pesado: se trae solo cuando alguien abre esa pestaña */
+  if(prefijo==='s2' && i===3) setTimeout(pedirDetalleCorte, 30);
+  if(prefijo==='s4' && i===3) setTimeout(pedirDetalleTint, 30);
   Array.prototype.forEach.call(document.querySelectorAll('#'+prefijo+'_tabs button'),
     function(b){ b.classList.remove('active'); });
   if(btn) btn.classList.add('active');
@@ -2058,9 +2063,9 @@ function pintarAyuda(){ ayuda(AYUDAS[ST.sec] || ''); }
 function render(){
   try{
     if(ST.sec==='s1' && CARGA.s1) secSegundas();
-    if(ST.sec==='s2' && CARGA.s2) secCorte();
+    if(ST.sec==='s2' && CARGA.s2){ secCorte(); if(DET_CORTE.filas) pedirDetalleCorte(); }
     if(ST.sec==='s3' && CARGA.s3) secDefectos();
-    if(ST.sec==='s4' && CARGA.s4) secTint();
+    if(ST.sec==='s4' && CARGA.s4){ secTint(); if(DET_TINT.filas) pedirDetalleTint(); }
     var p=[];
     if(CARGA.s1) p.push('segundas '+SEG.tot.length+' meses');
     if(CARGA.s2) p.push('auditoría de Corte '+fn(COR.n_oc||0)+' O/Corte · resumen calculado en el tablero');
