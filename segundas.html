@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.3 · 16-09-2026';
+var VERSION = 'v3.4 · 17-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -611,7 +611,14 @@ function ratio(a,b){ return b>0?a/b:null; }
 function group(rows,f){ var m=new Map(); rows.forEach(function(r){ var k=f(r); if(k==='') return;
   if(!m.has(k)) m.set(k,[]); m.get(k).push(r); }); return m; }
 function claves(m,f){ return Array.from(m.keys()).sort(function(a,b){ return f(m.get(b))-f(m.get(a)); }); }
-function mk(id,cfg){ var e=el(id); if(!e) return; if(CH[id]) CH[id].destroy(); CH[id]=new Chart(e.getContext('2d'),cfg); }
+function mk(id,cfg,plugs){
+  var e=el(id); if(!e) return;
+  /* los plugins pueden venir como tercer argumento: antes se perdían en silencio
+     y por eso las tendencias quedaban sin el valor sobre cada punto */
+  if(plugs) cfg.plugins=(cfg.plugins||[]).concat(plugs);
+  if(CH[id]) CH[id].destroy();
+  CH[id]=new Chart(e.getContext('2d'),cfg);
+}
 function fdmy(s){ return T(s) ? T(s).split('-').reverse().join('/') : ''; }
 /* KPI v2: etiqueta arriba, valor y delta en la misma fila, subtítulo abajo.
    El delta solo aparece si hay período anterior; si no, se omite. */
@@ -1452,7 +1459,10 @@ function secDefectos(){
     plugins:[barLabels]});
 
   var TELA2={}; DEF.cab.forEach(function(r){ if(r.cod_tela && r.articulo && !TELA2[r.cod_tela]) TELA2[r.cod_tela]=r.articulo; });
-  COR.liq.forEach(function(r){ if(r.cod_tela && r.tela && !TELA2[r.cod_tela]) TELA2[r.cod_tela]=r.tela; });
+  /* el resumen de Corte ya no trae filas de liquidación: el nombre de la tela
+     se toma del propio registro de defectos */
+  if(COR && COR.tela && COR.tela.forEach)
+    COR.tela.forEach(function(t){ if(t.cod && t.desc && !TELA2[t.cod]) TELA2[t.cod]=t.desc; });
   var gt3=group(cab,function(r){return r.cod_tela;});
   var tk3=claves(gt3,function(v){ return sum(v,function(r){return r.total;}); }).slice(0,10);
   mk('c_t3',{type:'bar',data:{labels:tk3.map(function(k){ var d=TELA2[k]; return d?[k,d.substring(0,28)]:k; }),
