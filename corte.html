@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.6 · 18-09-2026';
+var VERSION = 'v3.7 · 18-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1134,8 +1134,21 @@ function secSegundas(){
    (1.2 MB) y se calculaba en el navegador; ahora llegan unos 15 KB ya agrupados. */
 /* junta las filas del período elegido sumando sus campos numéricos */
 function agrupa(filas, clave, campos){
+  /* Tolera el formato anterior: si el backend todavía manda un objeto o filas
+     sin año y mes, se devuelve tal cual en vez de dejar el gráfico en blanco. */
+  var arr = filas;
+  if(!arr) return [];
+  if(!arr.forEach){
+    arr = Object.keys(arr).map(function(k){
+      var v=arr[k];
+      if(v && typeof v==='object') return v;
+      var o2={}; o2[campos[0]]=v; o2.nombre=k; o2.estado=k; o2.origen=k; o2.cod=k; o2.cliente=k;
+      return o2;
+    });
+  }
+  if(arr.length && arr[0].anio===undefined) return arr;   /* formato viejo: sin filtrar */
   var o={};
-  (filas||[]).filter(enPC).forEach(function(r){
+  arr.filter(enPC).forEach(function(r){
     var k=clave(r);
     if(!k) return;
     if(!o[k]){ o[k]={}; for(var x in r) o[k][x]=r[x]; campos.forEach(function(c){ o[k][c]=0; }); }
