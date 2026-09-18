@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.4 · 17-09-2026';
+var VERSION = 'v3.6 · 18-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1132,6 +1132,18 @@ function secSegundas(){
 /* ================= 2 · RECHAZOS DE CORTE ================= */
 /* Trabaja con el resumen que arma el Apps Script: antes se traían 3,042 filas
    (1.2 MB) y se calculaba en el navegador; ahora llegan unos 15 KB ya agrupados. */
+/* junta las filas del período elegido sumando sus campos numéricos */
+function agrupa(filas, clave, campos){
+  var o={};
+  (filas||[]).filter(enPC).forEach(function(r){
+    var k=clave(r);
+    if(!k) return;
+    if(!o[k]){ o[k]={}; for(var x in r) o[k][x]=r[x]; campos.forEach(function(c){ o[k][c]=0; }); }
+    campos.forEach(function(c){ o[k][c]+=Number(r[c])||0; });
+  });
+  return Object.keys(o).map(function(k){ return o[k]; });
+}
+
 function enPC(r){
   if(ST.anio==='CMP') return true;
   if(r.anio!==ST.anio) return false;
@@ -1183,7 +1195,7 @@ function secCorte(){
     'Los porcentajes son ponderados: suma de rechazadas ÷ suma de auditadas.';
 
   /* --- paneles LIVES y talleres --- */
-  var mods = (R.mod||[]);
+  var mods = agrupa(R.mod, function(r){ return r.nombre; }, ['oc','rech','pr']);
   var html='';
   [['LIVES','Módulos de Corte LIVES',''],['TALLER','Talleres de Corte','tall']].forEach(function(g){
     var s2=mods.filter(function(m){ return m.tipo===g[0]; });
@@ -1248,7 +1260,9 @@ function secCorte(){
       x:{grid:{display:false}}}}}),[pointLabels]);
 
   /* --- origen del defecto --- */
-  var org=R.origen||{}, gk=Object.keys(org).sort(function(a,b){ return org[b]-org[a]; });
+  var orgF=agrupa(R.origen, function(r){ return r.origen; }, ['n']);
+  var org={}; orgF.forEach(function(x){ org[x.origen]=x.n; });
+  var gk=Object.keys(org).sort(function(a,b){ return org[b]-org[a]; });
   var tOr=sum(gk,function(k){ return org[k]; })||1;
   mk('c_origen',{type:'bar',data:{labels:gk,datasets:[{data:gk.map(function(k){ return org[k]/tOr*100; }),
     backgroundColor:gk.map(function(k){ return k==='TEXTIL'?C.taupe:(k==='CORTE'?C.slate:C.warm); }),
@@ -1303,7 +1317,8 @@ function secCorte(){
     : '');
 
   /* --- rechazos por grupo vs producción --- */
-  var gr=(R.grupo||[]).slice().sort(function(a,b){ return b.cort-a.cort; }).slice(0,10);
+  var gr=agrupa(R.grupo, function(r){ return r.cliente; }, ['ins','cort'])
+    .sort(function(a,b){ return b.cort-a.cort; }).slice(0,10);
   mk('c_grupo',{data:{labels:gr.map(function(g){return g.cliente;}),datasets:[
     {type:'bar',label:'Prendas cortadas',data:gr.map(function(g){return g.cort;}),
      backgroundColor:C.wl,borderColor:C.warm,borderWidth:1,order:3},
@@ -1316,13 +1331,15 @@ function secCorte(){
       (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
       scales:{y:{beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return fn(v);}}},
         y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-        x:{grid:{display:false}}}}});
+        x:{grid:{display:false}}}}, plugins:[pointLabels]});
   el('f_grupo').textContent = cort>0
     ? 'Producción de la liquidación del Sistema · el acumulado no depende del mes elegido'
     : 'No hay liquidación cargada para el período seleccionado.';
 
   /* --- rechazos por código de tela --- */
-  var tel=(R.tela||[]).slice().sort(function(a,b){ return b.n-a.n; });
+  var tel=agrupa(R.tela, function(r){ return r.cod; }, ['n'])
+    .map(function(t){ t.desc=(R.telaDesc||{})[t.cod]||t.desc||''; return t; })
+    .sort(function(a,b){ return b.n-a.n; });
   var tk=tel.slice(0,10);
   var cubre=sum(tk,function(t){return t.n;});
   var totT=sum(tel,function(t){return t.n;});
@@ -1561,11 +1578,12 @@ function secTint(){
     kpi(pct(ratio(rec,partidas)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
 
   /* --- estado actual --- */
-  var est = R.estados||{};
+  var estF = agrupa(R.estados, function(r){ return r.estado; }, ['n']);
+  var est={}; estF.forEach(function(x){ est[x.estado]=x.n; });
   var ek = Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
   var totE = sum(ek,function(k){ return est[k]; })||1;
-  el('h_est4').textContent='Última revisión de cada una de las '+fn(R.n_partidas||0)+
-    ' partidas · haz clic en una barra para ver los motivos';
+  el('h_est4').textContent='Última revisión de cada una de las '+fn(totE)+
+    ' partidas de '+etiqueta().toLowerCase()+' · haz clic en una barra para ver los motivos';
   mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return est[k]/totE*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
       return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:4,barThickness:18}]},
@@ -1579,10 +1597,11 @@ function secTint(){
     plugins:[barLabels]});
 
   /* --- kilos por tintorería --- */
-  var kgT = R.kgTint||{};
+  var tints = agrupa(R.tint, function(r){ return r.nombre; }, ['n','rech','obs','kg']);
+  var kgT={}; tints.forEach(function(t){ if(t.kg>0) kgT[t.nombre]=t.kg; });
   var tk4 = Object.keys(kgT).sort(function(a,b){ return kgT[b]-kgT[a]; }).slice(0,10);
   var kgTotal = sum(Object.keys(kgT),function(k){ return kgT[k]; });
-  el('h_kg4').innerHTML='Peso total revisado · <b>'+fn(kgTotal)+' kg</b> en todo el registro';
+  el('h_kg4').innerHTML='Peso revisado en '+etiqueta().toLowerCase()+' · <b>'+fn(kgTotal)+' kg</b>';
   mk('c_kg4',{type:'bar',data:{labels:tk4.map(function(k){ return k.substring(0,26); }),
     datasets:[{data:tk4.map(function(k){ return kgT[k]; }),backgroundColor:C.emer,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:56}},plugins:{legend:{display:false},
@@ -1592,7 +1611,7 @@ function secTint(){
     plugins:[barLabels]});
 
   /* --- desempeño por tintorería --- */
-  var tints = (R.tint||[]).slice().sort(function(a,b){ return b.n-a.n; });
+  tints.sort(function(a,b){ return b.n-a.n; });
   var pk4 = tints.slice(0,10);
   mk('c_tint4',{data:{labels:pk4.map(function(t){ return t.nombre.substring(0,26); }),datasets:[
     {type:'bar',label:'Partidas revisadas',data:pk4.map(function(t){return t.n;}),
@@ -1607,7 +1626,7 @@ function secTint(){
       (c.dataset.yAxisID==='y1'?c.parsed.y.toFixed(1)+'%':fn(c.parsed.y)); }}}},
       scales:{y:{beginAtZero:true,grid:{color:C.wl}},
         y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-        x:{grid:{display:false},ticks:{font:{size:10}}}}}});
+        x:{grid:{display:false},ticks:{font:{size:10}}}}}, plugins:[pointLabels]});
 
   var filasT = tints.map(function(t){
     return {nombre:t.nombre, valor:ratio(t.rech,t.n)*100,
@@ -1623,7 +1642,7 @@ function secTint(){
       {etq:'Mayor rechazo', nombre:filasT[0].nombre,
        valorTxt:filasT[0].valor.toFixed(1)+'%', sub:filasT[0].sub, forzar:'bad'},
       kgTop?{etq:'Más kilos auditados', nombre:kgTop, valorTxt:fn(kgT[kgTop])+' kg',
-       sub:'peso revisado en todo el registro', forzar:''}:null,
+       sub:'peso revisado en '+etiqueta().toLowerCase(), forzar:''}:null,
       META_TINT);
   } else { var c4=el('ic4'); if(c4) c4.innerHTML=''; }
 
@@ -1733,7 +1752,7 @@ function abrirDetalle(estado){
   el('modal').classList.add('on');
 
   /* Los gráficos salen del resumen que ya está cargado: no hay nada que esperar. */
-  var defs = (TIN.defectos||[]).filter(function(d){ return d.estado===estado; });
+  var defs = (TIN.defectos||[]).filter(enPC).filter(function(d){ return d.estado===estado; });
   MO.defs = defs;
 
   var ts={}, fs={};
