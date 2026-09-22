@@ -550,7 +550,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v3.8 · 18-09-2026';
+var VERSION = 'v4.0 · 22-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1560,10 +1560,10 @@ function estadoClase(e){
 }
 function secTint(){
   var R = TIN || {};
-  /* Con un mes elegido se usa lo que pasó ESE mes; con el año completo, el estado
-     actual de cada partida, para no contar dos veces la misma. */
-  var anual = (ST.mes==='TODOS' || ST.anio==='CMP');
-  var A = (anual && R.anual) ? R.anual : R;
+  /* Cada partida cuenta en el mes en que entró, con el estado que tiene hoy.
+     Una observada de julio sigue apareciendo como pendiente de julio hasta que
+     se apruebe, y los meses suman sin repetir partidas. */
+  var A = R;
   var mes = (A.mes||[]).filter(enPC);
 
   var partidas = sum(mes,function(m){return m.n;});
@@ -1600,10 +1600,8 @@ function secTint(){
   var est={}; estF.forEach(function(x){ est[x.estado]=x.n; });
   var ek = Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
   var totE = sum(ek,function(k){ return est[k]; })||1;
-  el('h_est4').textContent = (anual
-      ? 'Estado actual de las '+fn(totE)+' partidas revisadas en '+etiqueta().toLowerCase()
-      : 'Cómo quedaron las '+fn(totE)+' partidas revisadas en '+etiqueta().toLowerCase())+
-    ' · haz clic en una barra para ver los motivos';
+  el('h_est4').textContent='Estado de hoy de las '+fn(totE)+' partidas que entraron en '+
+    etiqueta().toLowerCase()+' · haz clic en una barra para ver los motivos';
   mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return est[k]/totE*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
       return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:4,barThickness:18}]},
@@ -1621,7 +1619,8 @@ function secTint(){
   var kgT={}; tints.forEach(function(t){ if(t.kg>0) kgT[t.nombre]=t.kg; });
   var tk4 = Object.keys(kgT).sort(function(a,b){ return kgT[b]-kgT[a]; }).slice(0,10);
   var kgTotal = sum(Object.keys(kgT),function(k){ return kgT[k]; });
-  el('h_kg4').innerHTML='Peso revisado en '+etiqueta().toLowerCase()+' · <b>'+fn(kgTotal)+' kg</b>';
+  el('h_kg4').innerHTML='Peso de las partidas que entraron en '+etiqueta().toLowerCase()+
+    ' · <b>'+fn(kgTotal)+' kg</b>';
   mk('c_kg4',{type:'bar',data:{labels:tk4.map(function(k){ return k.substring(0,26); }),
     datasets:[{data:tk4.map(function(k){ return kgT[k]; }),backgroundColor:C.emer,borderRadius:4,barThickness:16}]},
     options:{indexAxis:'y',layout:{padding:{right:56}},plugins:{legend:{display:false},
@@ -1772,8 +1771,7 @@ function abrirDetalle(estado){
   el('modal').classList.add('on');
 
   /* Los gráficos salen del resumen que ya está cargado: no hay nada que esperar. */
-  var fuente = (ST.mes==='TODOS' || ST.anio==='CMP') && TIN.anual ? TIN.anual.defectos : TIN.defectos;
-  var defs = (fuente||[]).filter(enPC).filter(function(d){ return d.estado===estado; });
+  var defs = (TIN.defectos||[]).filter(enPC).filter(function(d){ return d.estado===estado; });
   MO.defs = defs;
 
   var ts={}, fs={};
@@ -2097,9 +2095,10 @@ var AYUDAS = {
     'defecto, con su código de tela, grupo y O/Corte.</p>',
  s4:'<p><b>Qué mide:</b> las auditorías de <b>partidas</b> (cada lote de tela teñida) en las '+
     'tintorerías que trabajan para LIVES.</p>'+
-    '<p><b>Estado actual:</b> una partida puede revisarse varias veces. Los indicadores usan la '+
-    '<b>última revisión</b> de cada partida, para no contarla dos veces. El historial completo se '+
-    'conserva y se puede consultar.</p>'+
+    '<p><b>Cómo se cuenta:</b> cada partida se cuenta en el mes en que <b>entró</b> (su primera '+
+    'revisión) y con el estado que tiene <b>hoy</b> (su última revisión). Una partida observada en '+
+    'julio sigue apareciendo como pendiente de julio hasta que alguien la apruebe. Por eso los meses '+
+    'se pueden sumar sin contar dos veces la misma partida.</p>'+
     '<p><b>Motivos:</b> al hacer clic en una barra de estado se abren los motivos, con filtro por '+
     'tintorería y familia de defecto. Una partida puede tener hasta dos motivos, pero sigue contando '+
     'como un solo rechazo a la tintorería.</p>'+
