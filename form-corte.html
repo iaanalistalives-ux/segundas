@@ -92,6 +92,11 @@
   .flist .acc select,.flist .acc input{font-family:inherit;font-size:12.5px;border:1.5px solid var(--warm);
     border-radius:6px;padding:6px 9px;}
   .flist .acc input.obs{flex:1;min-width:180px;}
+  .modo{display:inline-flex;background:var(--warm-light);border-radius:8px;padding:3px;gap:2px;}
+  .modo button{background:none;border:none;font-family:inherit;font-size:13px;font-weight:700;
+    color:var(--stone);padding:7px 16px;border-radius:6px;cursor:pointer;}
+  .modo button.on{background:var(--sage);color:#fff;}
+  .rangoOff{opacity:.45;pointer-events:none;}
   .fecha{position:relative;display:flex;align-items:center;}
   .fecha input[type=text]{padding-right:38px;}
   .fecha .calbtn{position:absolute;right:6px;width:26px;height:26px;display:flex;align-items:center;
@@ -223,6 +228,13 @@
         <div class="ch">Muestra las O/Corte según cómo estén hoy. Puedes elegir varias y cambiarles el estado de una vez.</div>
         <div class="grid">
           <div><label>Estado</label><select id="a_fest"></select></div>
+          <div><label>Desde <span style="font-weight:400;color:var(--stone)">(opcional)</span></label>
+            <div class="fecha"><input type="text" id="a_fd" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="a_fd_cal"></span></div></div>
+          <div><label>Hasta</label>
+            <div class="fecha"><input type="text" id="a_fh" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="a_fh_cal"></span></div>
+            <div class="hint">Máximo 3 meses. En blanco: todo el historial.</div></div>
           <div style="align-self:end"><button class="btn sec" type="button" id="a_fver">Ver</button></div>
         </div>
         <div id="a_flista"></div>
@@ -342,6 +354,13 @@
         <div class="ch">Muestra las partidas según su estado actual. Puedes elegir varias y cambiarles el estado de una vez.</div>
         <div class="grid">
           <div><label>Estado</label><select id="t_fest"></select></div>
+          <div><label>Desde <span style="font-weight:400;color:var(--stone)">(opcional)</span></label>
+            <div class="fecha"><input type="text" id="t_fd" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="t_fd_cal"></span></div></div>
+          <div><label>Hasta</label>
+            <div class="fecha"><input type="text" id="t_fh" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
+              <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="t_fh_cal"></span></div>
+            <div class="hint">Máximo 3 meses. En blanco: todo el historial.</div></div>
           <div style="align-self:end"><button class="btn sec" type="button" id="t_fver">Ver</button></div>
         </div>
         <div id="t_flista"></div>
@@ -431,8 +450,13 @@
 
       <div class="card no-print">
         <h2>Período</h2>
-        <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar.</div>
-        <div class="grid">
+        <div class="ch">Por defecto muestra hoy. Cambia las fechas para el rango que necesites enviar,
+          o pasa a «Todo el historial» para buscar sin importar la fecha.</div>
+        <div class="modo" style="margin-bottom:14px">
+          <button type="button" id="r_mfecha" class="on">Por fechas</button>
+          <button type="button" id="r_mtodo">Todo el historial</button>
+        </div>
+        <div class="grid" id="r_rango">
           <div><label>Desde</label>
             <div class="fecha"><input type="text" id="r_desde" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off">
               <span class="calbtn" title="Elegir en el calendario">📅<input type="date" id="r_desde_cal"></span></div></div>
@@ -443,7 +467,7 @@
             <button class="btn" type="button" id="r_ver">Ver</button>
             <button class="btn sec" type="button" id="r_hoy" style="margin-left:6px">Hoy</button>
             <button class="btn sec" type="button" id="r_sem" style="margin-left:6px">Últimos 7 días</button>
-            <button class="btn sec" type="button" id="r_todo" style="margin-left:6px">Todo el historial</button>
+
           </div>
         </div>
         <div class="grid" style="margin-top:14px">
@@ -1550,6 +1574,10 @@ function llenarDefectos(n){
 }
 
 function cargarCatalogos(){
+  /* mientras llega la respuesta, que no se vea un desplegable vacío */
+  ['a_fest','t_fest'].forEach(function(id){
+    var e=el(id); if(e && !e.innerHTML) e.innerHTML='<option value="">Cargando…</option>';
+  });
   jsonp(API+'?action=catalogos', function(res){
     if(!res || !res.ok) return;
     CAT = res.catalogos || {};
@@ -1660,6 +1688,16 @@ function cargarIndices(){
 /* El filtrado ocurre en el tablero: traer las 2,400 revisiones completas en cada
    consulta dejaba la página colgada. Aquí solo se guardan los valores de los desplegables. */
 var REP_LISTAS = null, REP_PIDE = 0;
+/* «Por fechas» para el cuadro que se envía; «Todo el historial» para buscar una
+   partida, un color o un grupo sin que la fecha estorbe. */
+var REP_MODO = 'fecha';
+function ponerModo(m){
+  REP_MODO = m;
+  el('r_mfecha').className = (m==='fecha') ? 'on' : '';
+  el('r_mtodo').className  = (m==='todo')  ? 'on' : '';
+  var r = el('r_rango'); if(r) r.className = 'grid' + (m==='todo' ? ' rangoOff' : '');
+  verReporte();
+}
 
 function cargarListasRep(luego){
   if(REP_LISTAS){ luego(); return; }
@@ -1705,12 +1743,23 @@ function hayFiltro(){ return textoFiltro() !== ''; }
 function pintarReporte(res, d1, d2){
   var f = res.filas || [];
   el('r_salida').innerHTML='';
-  el('r_titulo').textContent = 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2)+
-    ' · '+f.length+' revisión(es)'+textoFiltro();
+  var enc = (REP_MODO==='todo')
+    ? 'Todo el historial'
+    : 'Del '+iso2dmy(d1)+' al '+iso2dmy(d2);
+  el('r_titulo').textContent = enc+' · '+f.length+' revisión(es)'+textoFiltro();
   if(!f.length){
     el('r_kg').innerHTML=''; el('r_res').innerHTML='';
-    el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
-      (hayFiltro()?' con esos filtros':'')+' en esas fechas.</td></tr>';
+    if(hayFiltro() && REP_MODO==='fecha'){
+      el('r_tabla').innerHTML='<tr><td style="padding:12px;color:#5F726C">'+
+        'No hay revisiones con esos filtros <b>en esas fechas</b>. '+
+        '<button class="btn" type="button" id="r_sug" style="margin-left:8px">Buscar en todo el historial</button>'+
+        '</td></tr>';
+      var b=el('r_sug'); if(b) b.onclick=function(){ ponerModo('todo'); };
+    } else {
+      el('r_tabla').innerHTML='<tr><td style="padding:10px;color:#5F726C">No hay revisiones'+
+        (hayFiltro()?' con esos filtros':'')+
+        (REP_MODO==='fecha'?' en esas fechas':' en todo el historial')+'.</td></tr>';
+    }
     return;
   }
   var kg=res.kg||{}, kk=Object.keys(kg).sort(function(a,b){ return kg[b]-kg[a]; });
@@ -1733,9 +1782,12 @@ function pintarReporte(res, d1, d2){
 
 function verReporte(){
   cargarListasRep(function(){
-    var d1=dmy2iso(el('r_desde').value), d2=dmy2iso(el('r_hasta').value);
-    if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
-    if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
+    var d1='', d2='';
+    if(REP_MODO==='fecha'){
+      d1=dmy2iso(el('r_desde').value); d2=dmy2iso(el('r_hasta').value);
+      if(!d1||!d2){ msg('r_salida','err','Escribe las dos fechas como dd/mm/aaaa. Ejemplo: '+hoyDMY()+'.'); return; }
+      if(d1>d2){ var x=d1; d1=d2; d2=x; el('r_desde').value=iso2dmy(d1); el('r_hasta').value=iso2dmy(d2); }
+    }
     var url = API+'?action=rep_datos&desde='+d1+'&hasta='+d2+
       '&tint='+encodeURIComponent(T(el('r_ftint').value))+
       '&grupo='+encodeURIComponent(UP(el('r_fgrupo').value))+
@@ -1773,16 +1825,6 @@ function copiarTabla(){
 function hoyReporte(){
   var h=hoyDMY(); el('r_desde').value=h; el('r_hasta').value=h; verReporte();
 }
-function todoReporte(){
-  cargarListasRep(function(){
-    if(REP_LISTAS && REP_LISTAS.desde){
-      el('r_desde').value=iso2dmy(REP_LISTAS.desde);
-      el('r_hasta').value=iso2dmy(REP_LISTAS.hasta);
-    }
-    verReporte();
-  });
-}
-
 function semanaReporte(){
   var d=new Date(), a=new Date(d.getTime()-6*86400000);
   function dmy(x){ return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear(); }
@@ -1827,17 +1869,56 @@ function pintarEstados(pref){
     '<option value="__SINEST__">⚠ Sin estado o fuera de catálogo</option>';
 }
 
+/* Un rango de más de 3 meses trae demasiadas filas para trabajarlas de una sentada;
+   el tope obliga a ir resolviendo por período. */
+function rangoEstado(pref){
+  var d1=dmy2iso(el(pref+'_fd').value), d2=dmy2iso(el(pref+'_fh').value);
+  if(!d1 && !d2) return {ok:true, d1:'', d2:''};
+  if(d1 && !d2) d2 = hoyISO();
+  if(!d1 && d2) return {ok:false, msg:'Falta la fecha "Desde".'};
+  if(d1 > d2){ var x=d1; d1=d2; d2=x;
+    el(pref+'_fd').value=iso2dmy(d1); el(pref+'_fh').value=iso2dmy(d2); }
+  var a=new Date(d1+'T00:00:00'), b=new Date(d2+'T00:00:00');
+  var meses=(b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth());
+  if(meses>3 || (meses===3 && b.getDate()>a.getDate()))
+    return {ok:false, msg:'El rango no puede pasar de 3 meses. Elegiste del '+
+      iso2dmy(d1)+' al '+iso2dmy(d2)+'.'};
+  return {ok:true, d1:d1, d2:d2};
+}
+
 function verPorEstado(pref){
   var cfg=FILTRO[pref], est=T(el(pref+'_fest').value);
+  var rg=rangoEstado(pref);
+  if(!rg.ok){ msg(pref+'_fsalida','err',esc(rg.msg)); return; }
   FSEL[pref]={};
   el(pref+'_fest').setAttribute('data-ult', est);
   el(pref+'_flista').innerHTML='<div class="msg warn"><span class="spin" style="border-color:rgba(146,64,14,.3);border-top-color:#92400E;"></span>Buscando…</div>';
-  jsonp(API+'?action=por_estado&tabla='+cfg.tabla+'&estado='+encodeURIComponent(est), function(res){
+  jsonp(API+'?action=por_estado&tabla='+cfg.tabla+'&estado='+encodeURIComponent(est)+
+        '&desde='+rg.d1+'&hasta='+rg.d2, function(res){
     if(!res||!res.ok){ msg(pref+'_flista','err','No se pudo consultar el tablero.'); return; }
     FDATOS[pref]=res.filas||[];
     FVISIBLE[pref]=true;
     pintarLista(pref);
   }, function(){ msg(pref+'_flista','err','No se pudo consultar el tablero. Revisa la conexión.'); });
+}
+
+/* cuántas hay de cada mes: si no, en una tabla con scroll parece que solo hay del último */
+function porMesTexto(filas){
+  var M=['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+         'setiembre','octubre','noviembre','diciembre'];
+  var c={}, orden=[];
+  (filas||[]).forEach(function(r){
+    var f=T(r.fecha); if(!f) return;
+    var k=f.substring(0,7);
+    if(!c[k]){ c[k]=0; orden.push(k); }
+    c[k]++;
+  });
+  if(orden.length<2) return '';
+  orden.sort();
+  return ' · ' + orden.map(function(k){
+    var p=k.split('-');
+    return M[Number(p[1])-1]+' '+p[0]+': '+fn(c[k]);
+  }).join(' · ');
 }
 
 function pintarLista(pref){
@@ -1861,6 +1942,7 @@ function pintarLista(pref){
       '“SIN ESTADO”. Elígelas y asígnales el estado que corresponde.</div>' : '')+
     '<div class="flist"><div class="fh"><b>'+filas.length+'</b> '+cfg.titulo.toLowerCase()+
       (est==='__SINEST__' ? ' <b>sin estado válido</b>' : (est?' en estado <b>'+esc(est)+'</b>':' en total'))+
+      '<span style="font-weight:400;color:var(--stone)">'+porMesTexto(filas)+'</span>'+
       '<span class="der"><button class="btn sec mini" type="button" id="'+pref+'_fexcel">Descargar en Excel</button>'+
       '<button class="btn sec mini" type="button" id="'+pref+'_ftodos">Elegir todas</button>'+
       '<button class="btn sec mini" type="button" id="'+pref+'_fnada">Quitar selección</button></span></div>'+
@@ -2476,6 +2558,15 @@ ligarTela('d_cod','d_art',null);
  .forEach(function(p2){ vigilar(p2[0], p2[1]); });
 
 el('a_fver').onclick = function(){ verPorEstado('a'); };
+['a','t'].forEach(function(pf){
+  ['_fd','_fh'].forEach(function(su){
+    var cal=el(pf+su+'_cal'), txt=el(pf+su);
+    if(!cal||!txt) return;
+    cal.onchange=function(){ if(cal.value){ txt.value=iso2dmy(cal.value); verPorEstado(pf); } };
+    txt.addEventListener('change', function(){ var v=dmy2iso(txt.value); if(v) cal.value=v; });
+    ligarFecha(pf+su, function(){ verPorEstado(pf); });
+  });
+});
 el('t_fver').onclick = function(){ verPorEstado('t'); };
 el('a_ocnew').onblur = alSalirOC;
 el('a_ocnew').onkeydown = function(e){ if(e.key==='Enter'){ e.preventDefault(); alSalirOC(); } };
@@ -2504,9 +2595,10 @@ ligarFecha('r_desde', verReporte);
 ligarFecha('r_hasta', verReporte);
 
 el('r_ver').onclick = verReporte;
-el('r_hoy').onclick = hoyReporte;
-el('r_sem').onclick = semanaReporte;
-el('r_todo').onclick = todoReporte;
+el('r_hoy').onclick = function(){ REP_MODO='fecha'; ponerModo('fecha'); hoyReporte(); };
+el('r_mfecha').onclick = function(){ ponerModo('fecha'); };
+el('r_mtodo').onclick  = function(){ ponerModo('todo'); };
+el('r_sem').onclick = function(){ REP_MODO='fecha'; ponerModo('fecha'); semanaReporte(); };
 ligarCalendario('r_desde'); ligarCalendario('r_hasta');
 ['r_ftint','r_festado'].forEach(function(id){
   var e2=el(id); if(e2) e2.onchange = verReporte;
