@@ -495,6 +495,12 @@
         <div class="ph">Partidas revisadas y % de Partidas Rechazadas</div>
         <div class="cwrap"><canvas id="c_tend4"></canvas></div>
       </div>
+      <div class="panel">
+        <div class="pt">Foto del mes · lo que se registró en su momento</div>
+        <div class="ph" id="h_foto">Cuántas partidas se aprobaron, observaron y rechazaron en cada mes,
+          con el estado que tuvieron entonces. Este cuadro no cambia aunque después se resuelvan.</div>
+        <div class="cwrap tall"><canvas id="c_foto"></canvas></div>
+      </div>
       </div>
 
       <div class="tabpane">
@@ -550,7 +556,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v4.0 · 22-09-2026';
+var VERSION = 'v4.2 · 23-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1560,9 +1566,8 @@ function estadoClase(e){
 }
 function secTint(){
   var R = TIN || {};
-  /* Cada partida cuenta en el mes en que entró, con el estado que tiene hoy.
-     Una observada de julio sigue apareciendo como pendiente de julio hasta que
-     se apruebe, y los meses suman sin repetir partidas. */
+  /* Una partida cuenta en cada mes en que se la revisó, con el estado que tuvo
+     ese mes. Es lo mismo que muestra la tabla de detalle. */
   var A = R;
   var mes = (A.mes||[]).filter(enPC);
 
@@ -1600,8 +1605,8 @@ function secTint(){
   var est={}; estF.forEach(function(x){ est[x.estado]=x.n; });
   var ek = Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
   var totE = sum(ek,function(k){ return est[k]; })||1;
-  el('h_est4').textContent='Estado de hoy de las '+fn(totE)+' partidas que entraron en '+
-    etiqueta().toLowerCase()+' · haz clic en una barra para ver los motivos';
+  el('h_est4').textContent='Estado de HOY de las '+fn(totE)+' partidas revisadas en '+
+    etiqueta().toLowerCase()+' · lo ya resuelto deja de contar · clic en una barra para ver los motivos';
   mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return est[k]/totE*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
       return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:4,barThickness:18}]},
@@ -1619,7 +1624,7 @@ function secTint(){
   var kgT={}; tints.forEach(function(t){ if(t.kg>0) kgT[t.nombre]=t.kg; });
   var tk4 = Object.keys(kgT).sort(function(a,b){ return kgT[b]-kgT[a]; }).slice(0,10);
   var kgTotal = sum(Object.keys(kgT),function(k){ return kgT[k]; });
-  el('h_kg4').innerHTML='Peso de las partidas que entraron en '+etiqueta().toLowerCase()+
+  el('h_kg4').innerHTML='Peso revisado en '+etiqueta().toLowerCase()+
     ' · <b>'+fn(kgTotal)+' kg</b>';
   mk('c_kg4',{type:'bar',data:{labels:tk4.map(function(k){ return k.substring(0,26); }),
     datasets:[{data:tk4.map(function(k){ return kgT[k]; }),backgroundColor:C.emer,borderRadius:4,barThickness:16}]},
@@ -1697,6 +1702,32 @@ function secTint(){
     scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'Partidas'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
       x:{grid:{display:false}}}}}),[pointLabels]);
+
+  /* --- foto del mes: el estado que tuvieron entonces, no cambia nunca --- */
+  var anioF=(ST.anio==='CMP')?ANIOS[ANIOS.length-1]:ST.anio;
+  var serieF=MESES.map(function(m){
+    var f=(R.foto||[]).filter(function(x){ return x.anio===anioF && x.mes===m; });
+    if(!f.length) return null;
+    return {apro:sum(f,function(x){return x.apro;}), obs:sum(f,function(x){return x.obs;}),
+            rech:sum(f,function(x){return x.rech;}), n:sum(f,function(x){return x.n;})};
+  });
+  el('h_foto').textContent='Año '+anioF+' · cuántas partidas se aprobaron, observaron y rechazaron '+
+    'en cada mes, con el estado que tuvieron entonces. Este cuadro no cambia aunque después se resuelvan.';
+  mk('c_foto',{data:{labels:M3,datasets:[
+    {type:'bar',label:'Aprobadas',stack:'e',data:serieF.map(function(x){return x?x.apro:null;}),
+     backgroundColor:C.sage,borderRadius:4},
+    {type:'bar',label:'Observadas',stack:'e',data:serieF.map(function(x){return x?x.obs:null;}),
+     backgroundColor:C.tan,borderRadius:4},
+    {type:'bar',label:'Rechazadas',stack:'e',data:serieF.map(function(x){return x?x.rech:null;}),
+     backgroundColor:C.rose,borderRadius:4},
+    {type:'line',label:'% rechazadas ese mes',yAxisID:'y1',borderColor:C.taupe,backgroundColor:C.taupe,
+     borderWidth:2.5,tension:.3,pointRadius:3,spanGaps:true,pointBorderColor:'#fff',pointBorderWidth:1.5,
+     data:serieF.map(function(x){ return (x&&x.n)?x.rech/x.n*100:null; })}]},
+    options:{plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
+      (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
+      scales:{y:{stacked:true,beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'Partidas'}},
+        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
+        x:{stacked:true,grid:{display:false}}}}}, [pointLabels]);
 
 }
 
@@ -2095,10 +2126,16 @@ var AYUDAS = {
     'defecto, con su código de tela, grupo y O/Corte.</p>',
  s4:'<p><b>Qué mide:</b> las auditorías de <b>partidas</b> (cada lote de tela teñida) en las '+
     'tintorerías que trabajan para LIVES.</p>'+
-    '<p><b>Cómo se cuenta:</b> cada partida se cuenta en el mes en que <b>entró</b> (su primera '+
-    'revisión) y con el estado que tiene <b>hoy</b> (su última revisión). Una partida observada en '+
-    'julio sigue apareciendo como pendiente de julio hasta que alguien la apruebe. Por eso los meses '+
-    'se pueden sumar sin contar dos veces la misma partida.</p>'+
+    '<p><b>Dos lecturas del mismo dato, y las dos están en el tablero:</b></p>'+
+    '<p><b>1. Los indicadores y la evolución</b> cuentan cada partida en el mes en que se la revisó, '+
+    'pero con el <b>estado que tiene hoy</b>. Si una partida se rechazó en enero y se aprobó en marzo, '+
+    'enero deja de contarla como rechazada porque ya se resolvió. Por eso estos números <b>mejoran '+
+    'solos</b> conforme Calidad avanza.</p>'+
+    '<p><b>2. La «Foto del mes»</b> muestra lo que se registró en su momento y <b>no cambia nunca</b>: '+
+    'si en enero se rechazaron 6, ahí van a seguir las 6. Sirve para juzgar a la tintorería por lo que '+
+    'entregó ese mes.</p>'+
+    '<p>Una partida revisada en dos meses aparece en los dos, así que la suma de los meses es mayor '+
+    'que el número de partidas distintas.</p>'+
     '<p><b>Motivos:</b> al hacer clic en una barra de estado se abren los motivos, con filtro por '+
     'tintorería y familia de defecto. Una partida puede tener hasta dos motivos, pero sigue contando '+
     'como un solo rechazo a la tintorería.</p>'+
