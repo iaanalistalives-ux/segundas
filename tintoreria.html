@@ -469,7 +469,11 @@
       <div id="s4_panes">
       <div class="tabpane active">
       <div class="grid2">
-        <div class="panel"><div class="pt">Estado actual de las partidas</div>
+        <div class="panel"><div class="pt">Estado de las partidas
+            <span class="seg" id="sw_est" style="margin-left:12px;vertical-align:middle">
+              <button type="button" class="mbtn active" data-v="hoy">Estado actual</button>
+              <button type="button" class="mbtn" data-v="foto">Foto del mes</button>
+            </span></div>
           <div class="ph" id="h_est4"></div>
           <div class="cwrap"><canvas id="c_est4"></canvas></div></div>
         <div class="panel"><div class="pt">Kilos auditados por tintorería</div>
@@ -495,11 +499,7 @@
         <div class="ph">Partidas revisadas y % de Partidas Rechazadas</div>
         <div class="cwrap"><canvas id="c_tend4"></canvas></div>
       </div>
-      <div class="panel">
-        <div class="pt">Foto del mes · lo que se registró en su momento</div>
-        <div class="ph" id="h_foto">Cuántas partidas se aprobaron, observaron y rechazaron en cada mes,
-          con el estado que tuvieron entonces. Este cuadro no cambia aunque después se resuelvan.</div>
-        <div class="cwrap tall"><canvas id="c_foto"></canvas></div>
+      
       </div>
       </div>
 
@@ -556,7 +556,7 @@
 /* ============================================================
    Indicadores de Calidad Textil · LIVES
    ============================================================ */
-var VERSION = 'v4.2 · 23-09-2026';
+var VERSION = 'v4.3 · 23-09-2026';
 var API = 'https://script.google.com/macros/s/AKfycbyHk1fiFbwnVbzZ9BFADL76SP_smN8FSASGSqIiaQxZ1jOUaDLXlxmF3CG432AZPxtt/exec';
 var META_PZ = 0.025;
 /* Calidad no ha declarado meta para estos indicadores: sin meta no se pinta semáforo. */
@@ -1600,13 +1600,18 @@ function secTint(){
     kpi(pct(ratio(obs,partidas)),'% observadas',fn(obs)+' partidas','meta')+
     kpi(pct(ratio(rec,partidas)),'% de partidas rechazadas',fn(rec)+' partidas','bad');
 
-  /* --- estado actual --- */
-  var estF = agrupa(A.estados, function(r){ return r.estado; }, ['n']);
+  /* --- estado: el interruptor decide si es el de hoy o el del mes --- */
+  var fuenteEst = (VISTA_EST==='foto') ? (A.estadosFoto||A.estados) : A.estados;
+  var estF = agrupa(fuenteEst, function(r){ return r.estado; }, ['n']);
   var est={}; estF.forEach(function(x){ est[x.estado]=x.n; });
   var ek = Object.keys(est).sort(function(a,b){ return est[b]-est[a]; });
   var totE = sum(ek,function(k){ return est[k]; })||1;
-  el('h_est4').textContent='Estado de HOY de las '+fn(totE)+' partidas revisadas en '+
-    etiqueta().toLowerCase()+' · lo ya resuelto deja de contar · clic en una barra para ver los motivos';
+  el('h_est4').textContent = (VISTA_EST==='foto'
+      ? 'Cómo quedaron en su momento las '+fn(totE)+' partidas revisadas en '+etiqueta().toLowerCase()+
+        ' · este cuadro no cambia aunque después se resuelvan'
+      : 'Estado de HOY de las '+fn(totE)+' partidas revisadas en '+etiqueta().toLowerCase()+
+        ' · lo ya resuelto deja de contar')+
+    ' · clic en una barra para ver los motivos';
   mk('c_est4',{type:'bar',data:{labels:ek,datasets:[{data:ek.map(function(k){ return est[k]/totE*100; }),
     backgroundColor:ek.map(function(k){ var c=estadoClase(k);
       return c==='ap'?C.sage:(c==='re'?C.rose:(c==='ob'?C.tan:C.warm)); }),borderRadius:4,barThickness:18}]},
@@ -1703,31 +1708,7 @@ function secTint(){
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
       x:{grid:{display:false}}}}}),[pointLabels]);
 
-  /* --- foto del mes: el estado que tuvieron entonces, no cambia nunca --- */
-  var anioF=(ST.anio==='CMP')?ANIOS[ANIOS.length-1]:ST.anio;
-  var serieF=MESES.map(function(m){
-    var f=(R.foto||[]).filter(function(x){ return x.anio===anioF && x.mes===m; });
-    if(!f.length) return null;
-    return {apro:sum(f,function(x){return x.apro;}), obs:sum(f,function(x){return x.obs;}),
-            rech:sum(f,function(x){return x.rech;}), n:sum(f,function(x){return x.n;})};
-  });
-  el('h_foto').textContent='Año '+anioF+' · cuántas partidas se aprobaron, observaron y rechazaron '+
-    'en cada mes, con el estado que tuvieron entonces. Este cuadro no cambia aunque después se resuelvan.';
-  mk('c_foto',{data:{labels:M3,datasets:[
-    {type:'bar',label:'Aprobadas',stack:'e',data:serieF.map(function(x){return x?x.apro:null;}),
-     backgroundColor:C.sage,borderRadius:4},
-    {type:'bar',label:'Observadas',stack:'e',data:serieF.map(function(x){return x?x.obs:null;}),
-     backgroundColor:C.tan,borderRadius:4},
-    {type:'bar',label:'Rechazadas',stack:'e',data:serieF.map(function(x){return x?x.rech:null;}),
-     backgroundColor:C.rose,borderRadius:4},
-    {type:'line',label:'% rechazadas ese mes',yAxisID:'y1',borderColor:C.taupe,backgroundColor:C.taupe,
-     borderWidth:2.5,tension:.3,pointRadius:3,spanGaps:true,pointBorderColor:'#fff',pointBorderWidth:1.5,
-     data:serieF.map(function(x){ return (x&&x.n)?x.rech/x.n*100:null; })}]},
-    options:{plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
-      (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
-      scales:{y:{stacked:true,beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'Partidas'}},
-        y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-        x:{stacked:true,grid:{display:false}}}}}, [pointLabels]);
+
 
 }
 
@@ -1787,6 +1768,9 @@ function pintarDetalleTint(){
 }
 
 /* ---------------- detalle por estado (ventana emergente) ---------------- */
+/* qué muestra el gráfico de estados: 'hoy' (se actualiza) o 'foto' (no cambia nunca) */
+var VISTA_EST = 'hoy';
+
 var MO = {estado:'', base:[], defs:[], tint:'', fam:'', pide:0, cortado:false};
 
 function motivosDe(r){
@@ -2131,9 +2115,9 @@ var AYUDAS = {
     'pero con el <b>estado que tiene hoy</b>. Si una partida se rechazó en enero y se aprobó en marzo, '+
     'enero deja de contarla como rechazada porque ya se resolvió. Por eso estos números <b>mejoran '+
     'solos</b> conforme Calidad avanza.</p>'+
-    '<p><b>2. La «Foto del mes»</b> muestra lo que se registró en su momento y <b>no cambia nunca</b>: '+
-    'si en enero se rechazaron 6, ahí van a seguir las 6. Sirve para juzgar a la tintorería por lo que '+
-    'entregó ese mes.</p>'+
+    '<p><b>2. La «Foto del mes»</b> —el segundo botón del gráfico de estados— muestra lo que se '+
+    'registró en su momento y <b>no cambia nunca</b>: si en enero se rechazaron 6, ahí van a seguir '+
+    'las 6. Sirve para juzgar a la tintorería por lo que entregó ese mes.</p>'+
     '<p>Una partida revisada en dos meses aparece en los dos, así que la suma de los meses es mayor '+
     'que el número de partidas distintas.</p>'+
     '<p><b>Motivos:</b> al hacer clic en una barra de estado se abren los motivos, con filtro por '+
@@ -2215,6 +2199,18 @@ function exportar(){
   });
 }
 el('btnExport').onclick=exportar;
+try{
+  Array.prototype.forEach.call(el('sw_est').querySelectorAll('button'), function(b){
+    b.onclick=function(){
+      VISTA_EST=b.getAttribute('data-v');
+      Array.prototype.forEach.call(el('sw_est').querySelectorAll('button'), function(o){
+        o.className='mbtn'+(o===b?' active':'');
+      });
+      if(CARGA.s4) secTint();
+    };
+  });
+}catch(e){}
+
 el('mo_cerrar').onclick=cerrarDetalle;
 el('modal').onclick=function(e){ if(e.target===el('modal')) cerrarDetalle(); };
 el('mo_tint').onchange=function(){ MO.tint=T(el('mo_tint').value); pintarDetalle(); pedirTablaModal(); };
