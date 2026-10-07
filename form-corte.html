@@ -1447,10 +1447,6 @@ function pintar(){
 }
 
 function consultarMes(tabla, anio, mes){
-  if(!API || API.indexOf('http')!==0){
-    el('guardarTxt').innerHTML = '<span style="color:#B91C1C;font-weight:700;">Falta configurar la dirección del tablero en esta página.</span>';
-    el('btnGuardar').disabled = true; return;
-  }
   jsonp(API+'?action=status&tabla='+tabla+'&anio='+anio+'&mes='+encodeURIComponent(mes), function(res){
     if(res && res.ok && res.existe){
       el('guardarTxt').innerHTML = '<b style="color:#B45309;">'+mes+' '+anio+' ya estaba cargado</b>'+
