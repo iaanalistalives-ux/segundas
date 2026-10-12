@@ -2574,7 +2574,7 @@ function render(){
     if(CARGA.s2) p.push('auditoría de Corte '+fn(COR.n_oc||0)+' O/Corte · resumen calculado en el tablero');
     if(CARGA.s3) p.push('planillas con defectos '+fn(DEF.cab.length));
     if(CARGA.s4) p.push('tintorería '+fn(TIN.n_partidas||0)+' partidas y '+fn(TIN.n_revisiones||0)+' revisiones');
-    el('pie').innerHTML='Fuente: Google Sheet LIVES_SEGUNDAS_2026 · '+p.join(' · ')+
+    el('pie').innerHTML='Fuente: base de datos LIVES · '+p.join(' · ')+
       '. Cada indicador se trae al abrirlo, por eso el tablero abre rápido.';
     if(RARAS.length){
       el('pie').innerHTML += '<br><br><span style="color:#B45309;font-weight:700;">'+
