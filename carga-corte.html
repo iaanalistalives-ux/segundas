@@ -2178,7 +2178,9 @@ function textoFiltro(){
 function hayFiltro(){ return textoFiltro() !== ''; }
 
 function pintarReporte(res, d1, d2){
-  var f = res.filas || [];
+  /* más reciente arriba: la consulta llega de la más antigua a la más nueva */
+  var f = (res.filas || []).map(function(r,i){ return {r:r,i:i}; }).sort(function(a,b){
+    var fa=a.r.fecha||'', fb=b.r.fecha||''; return fa<fb?1:(fa>fb?-1:b.i-a.i); }).map(function(x){ return x.r; });
   el('r_salida').innerHTML='';
   var enc = (REP_MODO==='todo')
     ? 'Todo el historial'
@@ -2367,7 +2369,9 @@ function pintarLista(pref){
     return;
   }
   var th=cfg.cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+'<th>Estado actual</th>';
-  var tb=filas.map(function(r,i){
+  /* Regla 500: sin filtros (Todos y sin fechas) se dibujan solo las 500 más recientes; la lista ya llega de la más nueva a la más antigua */
+  var iniF = (!est && !T(el(pref+'_fd').value) && !T(el(pref+'_fh').value)), topeF = (iniF && filas.length>500);
+  var tb=(topeF ? filas.slice(0,500) : filas).map(function(r,i){
     return '<tr data-i="'+i+'"><td><input type="checkbox" class="fchk" data-i="'+i+'"></td>'+
       cfg.fila(r).map(function(c){ return '<td>'+c+'</td>'; }).join('')+
       '<td>'+(T(r.estado)? esc(r.estado) : '<span style="color:#B45309;font-weight:700">(vacío)</span>')+'</td>'+
@@ -2384,6 +2388,8 @@ function pintarLista(pref){
       '<button class="btn sec mini" type="button" id="'+pref+'_ftodos">Elegir todas</button>'+
       '<button class="btn sec mini" type="button" id="'+pref+'_fnada">Quitar selección</button></span></div>'+
     '<div class="fb"><table><tr><th style="width:28px"></th>'+th+'<th>Observación</th></tr>'+tb+'</table></div>'+
+    (topeF ? '<div class="lsTope500" style="font-size:12px;color:#5F726C;text-align:center;padding:8px 0">Se muestran los 500 registros más recientes de '+
+      Number(filas.length).toLocaleString('es-PE')+'. Usa los filtros para ver los demás.</div>' : '')+
     '<div class="acc"><span id="'+pref+'_fcuenta" style="font-size:12.5px;color:var(--stone)">Ninguna elegida</span>'+
       '<select id="'+pref+'_fnuevo"><option value="">Cambiar estado a…</option>'+
       cfg.estados().map(function(v){ return '<option value="'+v.replace(/"/g,'&quot;')+'">'+esc(v)+'</option>'; }).join('')+

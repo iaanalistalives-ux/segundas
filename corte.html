@@ -908,6 +908,7 @@
         <div class="pt">Partidas revisadas</div>
         <div class="ph" id="h_t4">Estado actual de cada partida del período</div>
         <div class="tscroll"><table id="t_part"></table></div>
+        <div class="lsTope500" id="tope_part" style="font-size:12px;color:#5F726C;text-align:center;padding:8px 0;display:none"></div>
         <div class="foot">Este cuadro reemplaza a la hoja "PARTIDAS REVISADAS" que se armaba a mano: filtra por año y mes arriba, e imprime.</div>
       </div>
     </div>
@@ -946,7 +947,8 @@
             <div class="cwrap"><canvas id="mo_c3"></canvas></div></div>
           <div class="panel"><div class="pt">Partidas</div>
             <div class="ph" id="mo_h4"></div>
-            <div class="tscroll"><table id="mo_tabla"></table></div></div>
+            <div class="tscroll"><table id="mo_tabla"></table></div>
+            <div class="lsTope500" id="tope_mo" style="font-size:12px;color:#5F726C;text-align:center;padding:8px 0;display:none"></div></div>
         </div>
       </div>
     </div>
@@ -2163,7 +2165,8 @@ function pedirDetalleTint(){
       d1=ST.anio+'-'+p2(im+1)+'-01'; d2=ST.anio+'-'+p2(im+1)+'-'+p2(ult);
     }
   }
-  jsonp(API+'?action=rep_datos&limite=600&desde='+d1+'&hasta='+d2, function(res){
+  /* Regla 500: se trae todo el período (el tope del servidor devolvía las más antiguas) y solo se dibujan 500 sin filtro. */
+  jsonp(API+'?action=rep_datos&limite=0&desde='+d1+'&hasta='+d2, function(res){
     DET_TINT.pidiendo=false;
     DET_TINT.clave=clave;
     DET_TINT.filas=(res&&res.ok)?(res.filas||[]):[];
@@ -2186,6 +2189,9 @@ function pintarDetalleTint(){
   el('h_t4').textContent=fn(lista.length)+' partidas · '+etiqueta()+' · '+
     fn(sum(f,function(r){return N(r.peso);}))+' kg auditados'+
     (DET_TINT.cortado?' · se muestran las más recientes; para el listado completo usa Partidas revisadas':'');
+  var totPart = lista.length, iniPart = (ST.anio!=='CMP' && ST.anio===ANIOS[ANIOS.length-1] && ST.mes==='TODOS');
+  if(iniPart && totPart>500) lista = lista.slice(0,500);
+  topeLinea('tope_part', iniPart && totPart>500, totPart);
   el('t_part').innerHTML='<tr><th>Última revisión</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
     '<th>Grupo</th><th>Color</th><th class="num">Peso kg</th><th>Auditores</th><th>Estado</th>'+
     '<th class="num">Revisiones</th><th>Observaciones</th></tr>'+
@@ -2198,6 +2204,13 @@ function pintarDetalleTint(){
         '<td class="num">'+(revs[String(r.partida).toUpperCase()]||1)+'</td>'+
         '<td>'+esc(String(r.obs).substring(0,50))+'</td></tr>';
     }).join('') || '<tr><td colspan="11">Sin partidas en el período.</td></tr>');
+}
+
+/* Regla 500: línea discreta debajo de la lista cuando sin filtros hay más de 500 */
+function topeLinea(id, ver, n){
+  var e=document.getElementById(id); if(!e) return;
+  e.textContent = ver ? 'Se muestran los 500 registros más recientes de '+Number(n).toLocaleString('es-PE')+'. Usa los filtros para ver los demás.' : '';
+  e.style.display = ver ? 'block' : 'none';
 }
 
 /* ---------------- detalle por estado (ventana emergente) ---------------- */
@@ -2306,7 +2319,7 @@ function pintarDetalle(){
 }
 
 /* La tabla del modal se trae aparte y con tope: es lo único pesado. */
-var MO_TOPE = 400;
+var MO_TOPE = 0;  /* Regla 500: sin tope en la consulta; el tope de 500 es solo de lo que se dibuja */
 function pedirTablaModal(){
   var d1='', d2='';
   if(ST.anio!=='CMP'){
@@ -2333,7 +2346,13 @@ function pintarTablaModal(){
   var d = (MO.base||[]).filter(function(r){
     if(MO.fam && String(r.familia1).toUpperCase()!==MO.fam && String(r.familia2).toUpperCase()!==MO.fam) return false;
     return true; });
-  el('mo_h4').textContent = fn(d.length)+' partidas'+
+  /* más reciente arriba (la consulta llega de la más antigua a la más nueva) */
+  d = d.map(function(r,i){ return {r:r,i:i}; }).sort(function(a,b){
+    var fa=a.r.fecha||'', fb=b.r.fecha||''; return fa<fb?1:(fa>fb?-1:b.i-a.i); }).map(function(x){ return x.r; });
+  var totMo = d.length, iniMo = (!MO.tint && !MO.fam);
+  if(iniMo && totMo>500) d = d.slice(0,500);
+  topeLinea('tope_mo', iniMo && totMo>500, totMo);
+  el('mo_h4').textContent = fn(totMo)+' partidas'+
     (MO.cortado ? ' · se muestran las '+MO_TOPE+' más recientes; usa los filtros o descarga el Excel para ver todo' : '');
   el('mo_tabla').innerHTML='<tr><th>Fecha</th><th>Tintorería</th><th>Partida</th><th>Artículo</th>'+
     '<th>Grupo</th><th class="num">Peso kg</th><th>Familia</th><th>Motivo</th><th>Observaciones</th></tr>'+
