@@ -1094,8 +1094,75 @@ function realzarLineas(cfg){
   return cfg;
 }
 
+/* Comparativo entre años (12/10/2026): una línea por año, con el valor en cada punto
+   de cada año. El año más reciente va más grueso; colores LIVES por año. */
+var COL_ANIO=['#0F7A5A','#0E3B36','#4E6B78','#B45309','#F59E0B','#5F726C'];
+function estiloAnio(a, anios){
+  var k=anios.length-1-anios.indexOf(a); if(k<0) k=0;          /* 0 = año más reciente */
+  return {col:COL_ANIO[Math.min(k,COL_ANIO.length-1)], ancho:k===0?3.5:2.25, radio:k===0?4:3, prio:k};
+}
+/* Etiquetas sin choques: si dos del mismo mes se tapan, una va arriba y la otra abajo;
+   si no hay espacio, se omite (el valor queda en el tooltip). Gana el año más reciente. */
+function etiquetasSinChoque(ch, fmt){
+  var A=ch.chartArea, ctx=ch.ctx, cands=[], obst=[], puestas=[];
+  if(!A) return;
+  var techo=A.top-((ch.options.layout&&ch.options.layout.padding&&ch.options.layout.padding.top)||0);
+  ctx.save(); ctx.font='700 10.5px Calibri, Arial, sans-serif';
+  ch.data.datasets.forEach(function(ds,di){
+    if((ds.type||ch.config.type)!=='line') return;
+    if(ds.borderDash && ds.pointRadius===0) return;      /* la línea de meta no se etiqueta */
+    var meta=ch.getDatasetMeta(di); if(meta.hidden || !ch.isDatasetVisible(di)) return;
+    meta.data.forEach(function(pt,i){
+      var v=ds.data[i]; if(v==null || !isFinite(pt.x) || !isFinite(pt.y)) return;
+      var txt=fmt(v,i,ds);
+      var c={i:i,di:di,x:pt.x,y:pt.y,txt:txt,w:ctx.measureText(txt).width,col:ds.borderColor||'#5F726C',
+             prio:(ds.etqPrio==null?di:ds.etqPrio)};
+      cands.push(c); obst.push({x1:pt.x-4,x2:pt.x+4,y1:pt.y-4,y2:pt.y+4,di:di,i:i});
+    });
+  });
+  function caja(c,abajo){
+    var cx=Math.min(Math.max(c.x, A.left+c.w/2+2), A.right-c.w/2-2);
+    var base=abajo?c.y+17:c.y-6;
+    return {x1:cx-c.w/2-3,x2:cx+c.w/2+3,y1:base-11,y2:base+2,cx:cx,base:base};
+  }
+  function cabe(b){ return b.y1>=techo && b.y2<=A.bottom; }
+  function choca(b,lista,c){
+    for(var k=0;k<lista.length;k++){ var o=lista[k];
+      if(c && o.di===c.di && o.i===c.i) continue;
+      if(b.x1<o.x2 && b.x2>o.x1 && b.y1<o.y2 && b.y2>o.y1) return true; }
+    return false;
+  }
+  /* 1) dentro de cada mes: el punto de más arriba lleva la etiqueta arriba; si la del
+        siguiente choca, se corre abajo */
+  var porMes={};
+  cands.forEach(function(c){ (porMes[c.i]=porMes[c.i]||[]).push(c); });
+  Object.keys(porMes).forEach(function(k){
+    var l=porMes[k].sort(function(p,q){ return p.y-q.y; }), mes=[];
+    l.forEach(function(c){
+      var arr=caja(c,false), abj=caja(c,true);
+      c.abajo = !(cabe(arr) && !choca(arr,mes)) && cabe(abj) && !choca(abj,mes);
+      mes.push(caja(c,c.abajo));
+    });
+  });
+  /* 2) en todo el gráfico, por prioridad (año más reciente primero) */
+  cands.sort(function(p,q){ return (p.prio-q.prio) || (p.i-q.i); }).forEach(function(c){
+    var ops=[c.abajo,!c.abajo];
+    for(var k=0;k<2;k++){
+      var b=caja(c,ops[k]);
+      if(cabe(b) && !choca(b,puestas) && !choca(b,obst,c)){ b.c=c; puestas.push(b); return; }
+    }
+  });
+  puestas.forEach(function(b){
+    ctx.fillStyle='rgba(255,255,255,.88)';
+    ctx.fillRect(b.x1, b.y1, b.x2-b.x1, b.y2-b.y1);
+    ctx.fillStyle=b.c.col; ctx.textAlign='center'; ctx.textBaseline='bottom';
+    ctx.fillText(b.c.txt, b.cx, b.base);
+  });
+  ctx.restore();
+}
 var pointLabels={id:'pointLabels',afterDatasetsDraw:function(ch,a,opts){
   var fmt=(opts&&opts.fmt)||function(v){ return v.toFixed(1)+'%'; };
+  if(opts && opts.evitar){ etiquetasSinChoque(ch, fmt); return; }
   var soloTipo=(opts&&opts.soloTipo)||'line';
   ch.data.datasets.forEach(function(ds,di){
     if((ds.type||ch.config.type)!==soloTipo) return;
@@ -1436,7 +1503,8 @@ function secSegundas(){
     'Los acumulados son ponderados (suma de segundas ÷ suma de confeccionadas), nunca promedio de porcentajes.');
   el('n1').innerHTML = av.join('<br><br>');
 
-  var anios=(ST.anio==='CMP')?ANIOS:[ST.anio], ds=[];
+  var cmp1=(ST.anio==='CMP');
+  var anios=cmp1?ANIOS:[ST.anio], ds=[];
   anios.forEach(function(a,ai){
     [['PIEZA','% piezas',C.rose],['PRENDA','% prendas',C.slate]].forEach(function(t){
       var serie=MESES.map(function(m){
@@ -1454,15 +1522,34 @@ function secSegundas(){
         pointRadius:serie.map(function(v,i){ return v==null?0:(man[i]?5:3.5); }),
         pointStyle:serie.map(function(v,i){ return man[i]?'triangle':'circle'; }),
         segment:{borderDash:function(c){ return man[c.p0DataIndex]||man[c.p1DataIndex]?[6,4]:undefined; }}});
+      if(cmp1){
+        /* comparativo: el color es el del año; prendas con rombo y trazo punteado corto */
+        var ea=estiloAnio(a,anios), d1=ds[ds.length-1], esPr=(t[0]==='PRENDA');
+        d1.borderColor=ea.col; d1.backgroundColor=ea.col; d1.borderWidth=ea.ancho; d1.etqPrio=ea.prio*2+(esPr?1:0); d1.etqTipo=esPr?'rectRot':'circle';
+        d1.pointRadius=serie.map(function(v,i){ return v==null?0:(man[i]?5:ea.radio); });
+        d1.pointStyle=serie.map(function(v,i){ return man[i]?'triangle':(esPr?'rectRot':'circle'); });
+        if(esPr) d1.segment={borderDash:function(c){ return man[c.p0DataIndex]||man[c.p1DataIndex]?[6,4]:[2,3]; }};
+      }
     });
   });
   ds.push({label:'Meta',data:MESES.map(function(){return META_PZ*100;}),borderColor:C.tan,
     borderWidth:2,borderDash:[6,5],pointRadius:0,tension:0});
-  mk('c_tend1',realzarLineas({type:'line',data:{labels:M3,datasets:ds},options:{
+  var cfg1={type:'line',data:{labels:M3,datasets:ds},options:{
     plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'); }}}},
     scales:{y:{beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},x:{grid:{display:false}}}},
-    plugins:[pointLabels]}));
+    plugins:[pointLabels]};
+  if(cmp1){
+    cfg1.options.layout={padding:{top:16}};
+    cfg1.options.plugins.pointLabels={evitar:true};
+    /* la leyenda muestra el símbolo de cada línea (no el del primer mes, que puede ser MANUAL) */
+    cfg1.options.plugins.legend.labels.generateLabels=function(ch){
+      var it=Chart.defaults.plugins.legend.labels.generateLabels(ch);
+      it.forEach(function(x){ var d=ch.data.datasets[x.datasetIndex]; if(d && d.etqTipo) x.pointStyle=d.etqTipo; });
+      return it;
+    };
+    mk('c_tend1',cfg1);
+  }else mk('c_tend1',realzarLineas(cfg1));
   el('f1').textContent='Los puntos triangulares con línea punteada son meses de origen MANUAL.';
 
   function top10(arr,cv,color,hid,que){
@@ -1671,9 +1758,10 @@ function secCorte(){
   if(ST.anio==='CMP'){
     ds2=[]; lb=M3;
     ANIOS.forEach(function(a,i){
-      ds2.push({type:'line',label:'% Rech sobre N° O/C '+a,yAxisID:'y1',
-        borderColor:[C.rose,C.slate,C.taupe][i%3],backgroundColor:[C.rose,C.slate,C.taupe][i%3],
-        borderWidth:2.5,tension:.3,spanGaps:true,pointRadius:3,pointBorderColor:'#fff',pointBorderWidth:1.5,
+      var ea=estiloAnio(a,ANIOS);
+      ds2.push({type:'line',label:'% Rech sobre N° O/C '+a,yAxisID:'y1',etqPrio:ea.prio,
+        borderColor:ea.col,backgroundColor:ea.col,
+        borderWidth:ea.ancho,tension:.3,spanGaps:true,pointRadius:ea.radio,pointBorderColor:'#fff',pointBorderWidth:1.5,
         data:MESES.map(function(m){
           var f=(R.mes||[]).filter(function(x){ return x.anio===a && x.mes===m; });
           if(!f.length) return null;
@@ -1700,12 +1788,21 @@ function secCorte(){
         data:dat.map(function(d){ return d.pr ? d.prRech/d.pr*100 : null; })}];
     el('t2h').textContent='Año '+ST.anio+' · N° O/C auditadas y % de rechazo por mes';
   }
-  mk('c_tend2',realzarLineas({data:{labels:lb,datasets:ds2},options:{
+  var cfg2={data:{labels:lb,datasets:ds2},options:{
     plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
       (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
     scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'N° O/C'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-      x:{grid:{display:false}}}}}),[pointLabels]);
+      x:{grid:{display:false}}}}};
+  if(ST.anio==='CMP'){
+    /* comparativo: solo líneas por año y un solo eje con el % */
+    cfg2.type='line';
+    cfg2.options.layout={padding:{top:16}};
+    cfg2.options.plugins.pointLabels={evitar:true};
+    cfg2.options.scales={y1:{position:'left',beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},
+      x:{grid:{display:false}}};
+    mk('c_tend2',cfg2,[pointLabels]);
+  }else mk('c_tend2',realzarLineas(cfg2),[pointLabels]);
 
   /* --- origen del defecto --- */
   var orgF=agrupa(R.origen, function(r){ return r.origen; }, ['n']);
@@ -1941,26 +2038,46 @@ function secDefectos(){
         y:{grid:{display:false},ticks:{font:{size:10}}}}},
     plugins:[barLabels]});
 
-  var anios3=(ST.anio==='CMP')?ANIOS:[ST.anio];
+  var cmp3=(ST.anio==='CMP');
+  var anios3=cmp3?ANIOS:[ST.anio];
   var ds3=[];
   anios3.forEach(function(a,i){
     var pl=MESES.map(function(m){ return DEF.cab.filter(function(r){ return r.anio===a&&r.mes===m; }); });
+    if(!cmp3)
     ds3.push({type:'bar',label:'Planillas '+(anios3.length>1?a:''),data:pl.map(function(s){return s.length;}),
       backgroundColor:i?C.warm:C.wl,borderColor:C.warm,borderWidth:1,yAxisID:'y',order:3});
-    ds3.push({type:'line',label:'% de rechazo '+(anios3.length>1?a:''),yAxisID:'y1',order:1,
+    var l3={type:'line',label:'% de rechazo '+(anios3.length>1?a:''),yAxisID:'y1',order:1,
       borderColor:[C.rose,C.slate][i%2],backgroundColor:[C.rose,C.slate][i%2],borderWidth:2.5,tension:.3,
       pointRadius:3,spanGaps:true,
       data:pl.map(function(s){ if(!s.length) return null;
         var v=ratio(sum(s,function(r){return r.total;}),sum(s,function(r){return r.prendas;}));
-        return v==null?null:v*100; })});
+        return v==null?null:v*100; })};
+    if(cmp3){
+      var ea=estiloAnio(a,anios3);
+      l3.borderColor=ea.col; l3.backgroundColor=ea.col; l3.borderWidth=ea.ancho; l3.pointRadius=ea.radio;
+      l3.pointBorderColor='#fff'; l3.pointBorderWidth=1.5; l3.etqPrio=ea.prio;
+    }
+    ds3.push(l3);
   });
-  mk('c_tend3',realzarLineas({data:{labels:M3,datasets:ds3},options:{
+  var cfg3={data:{labels:M3,datasets:ds3},options:{
     plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
       tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+(c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(2)+'%'):fn(c.parsed.y)); }}}},
     scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'Planillas'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
       x:{grid:{display:false}}}},
-    plugins:[pointLabels]}));
+    plugins:[pointLabels]};
+  var ph3=el('c_tend3')?el('c_tend3').parentNode.previousElementSibling:null;
+  if(ph3 && ph3.className==='ph') ph3.textContent = cmp3 ? '% de rechazo del mes · una línea por año'
+    : 'Planillas inspeccionadas y % de rechazo del mes';
+  if(cmp3){
+    /* comparativo: solo líneas por año y un solo eje con el % */
+    cfg3.type='line';
+    cfg3.options.layout={padding:{top:16}};
+    cfg3.options.plugins.pointLabels={evitar:true};
+    cfg3.options.scales={y1:{position:'left',beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},
+      x:{grid:{display:false}}};
+    mk('c_tend3',cfg3);
+  }else mk('c_tend3',realzarLineas(cfg3));
 }
 
 function traza(){
@@ -2121,27 +2238,46 @@ function secTint(){
     : '');
 
   /* --- evolución mensual --- */
-  var anios4=(ST.anio==='CMP')?ANIOS:[ST.anio], ds4=[];
+  var cmp4=(ST.anio==='CMP');
+  var anios4=cmp4?ANIOS:[ST.anio], ds4=[];
   anios4.forEach(function(a,i){
     var pm=MESES.map(function(m){
       var f=(R.mes||[]).filter(function(x){ return x.anio===a && x.mes===m; });
       if(!f.length) return null;
       return {n:sum(f,function(x){return x.n;}), rech:sum(f,function(x){return x.rech;})};
     });
+    if(!cmp4)
     ds4.push({type:'bar',label:'Partidas '+(anios4.length>1?a:''),
       data:pm.map(function(x){ return x?x.n:null; }),
       backgroundColor:i?C.warm:C.wl,borderColor:C.warm,borderWidth:1,order:3});
-    ds4.push({type:'line',label:'% de partidas rechazadas '+(anios4.length>1?a:''),yAxisID:'y1',order:1,
+    var l4={type:'line',label:'% de partidas rechazadas '+(anios4.length>1?a:''),yAxisID:'y1',order:1,
       borderColor:[C.rose,C.slate][i%2],backgroundColor:[C.rose,C.slate][i%2],borderWidth:2.5,
       tension:.3,pointRadius:3,spanGaps:true,pointBorderColor:'#fff',pointBorderWidth:1.5,
-      data:pm.map(function(x){ return (x&&x.n)?x.rech/x.n*100:null; })});
+      data:pm.map(function(x){ return (x&&x.n)?x.rech/x.n*100:null; })};
+    if(cmp4){
+      var ea=estiloAnio(a,anios4);
+      l4.borderColor=ea.col; l4.backgroundColor=ea.col; l4.borderWidth=ea.ancho; l4.pointRadius=ea.radio; l4.etqPrio=ea.prio;
+    }
+    ds4.push(l4);
   });
-  mk('c_tend4',realzarLineas({data:{labels:M3,datasets:ds4},options:{
+  var cfg4={data:{labels:M3,datasets:ds4},options:{
     plugins:{tooltip:{callbacks:{label:function(c){ return c.dataset.label+': '+
       (c.dataset.yAxisID==='y1'?(c.parsed.y==null?'—':c.parsed.y.toFixed(1)+'%'):fn(c.parsed.y)); }}}},
     scales:{y:{beginAtZero:true,grid:{color:C.wl},title:{display:true,text:'Partidas'}},
       y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:function(v){return v+'%';}}},
-      x:{grid:{display:false}}}}}),[pointLabels]);
+      x:{grid:{display:false}}}}};
+  var ph4=el('c_tend4')?el('c_tend4').parentNode.previousElementSibling:null;
+  if(ph4 && ph4.className==='ph') ph4.textContent = cmp4 ? '% de Partidas Rechazadas por mes · una línea por año'
+    : 'Partidas revisadas y % de Partidas Rechazadas';
+  if(cmp4){
+    /* comparativo: solo líneas por año y un solo eje con el % */
+    cfg4.type='line';
+    cfg4.options.layout={padding:{top:16}};
+    cfg4.options.plugins.pointLabels={evitar:true};
+    cfg4.options.scales={y1:{position:'left',beginAtZero:true,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},
+      x:{grid:{display:false}}};
+    mk('c_tend4',cfg4,[pointLabels]);
+  }else mk('c_tend4',realzarLineas(cfg4),[pointLabels]);
 
 
 
@@ -2684,58 +2820,102 @@ arranque();
 <script id="lsSbJs">(function(){try{var h=document.querySelector(".header");if(!h)return;h.setAttribute("data-ls-sin-barra","");var m=[];[].forEach(function(i){var e=document.getElementById(i);if(e&&h.contains(e))m.push(e);});Array.prototype.forEach.call(h.querySelectorAll("a,button,select,input"),function(e){if(!m.some(function(x){return x===e||x.contains(e);}))m.push(e);});m=m.filter(function(e){return !m.some(function(x){return x!==e&&x.contains(e);});});if(!m.length)return;m.sort(function(a,b){return a.compareDocumentPosition(b)&4?-1:1;});var b=document.createElement("div");b.className="lsSinBarra";m.forEach(function(e){b.appendChild(e);});h.parentNode.insertBefore(b,h);}catch(e){}})();</script>
 <!-- ===== fin lives-sin-barra v1 ===== -->
 
-<!-- ===== lives-actualizar v1 · 2026-10-06 · aviso de versión nueva (común a todas las herramientas).
-     Revisa cada 3 minutos (y al volver a la pestaña) si el archivo publicado cambió. Si cambió,
-     muestra "Hay una versión nueva · Actualizar". Nunca recarga sola: la persona decide, así no
-     pierde lo que está llenando. Solo pide el encabezado del archivo (HEAD), no lo descarga. ===== -->
+<!-- ===== lives-actualizar v2 · 2026-10-12 · aviso de versión nueva OBLIGATORIO (común a todas las herramientas).
+     Revisa cada 3 minutos (y al volver a la pestaña) si el archivo publicado cambió. Si cambió, tapa la
+     herramienta con un aviso que no se puede cerrar: un solo botón, "Actualizar". En celular ocupa toda la
+     pantalla; en computadora sale al centro. No aparece mientras la persona está escribiendo (espera a que
+     pase 20 s sin teclear) y, antes de recargar, pide a la herramienta que guarde su borrador si tiene uno.
+     Solo pide el encabezado del archivo (HEAD), no lo descarga. ===== -->
 <style id="lsActCss">
-#lsAct{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:2147483000;display:none;
-  align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;max-width:calc(100vw - 32px);
-  background:#0E3B36;color:#fff;border:2px solid #10B981;border-radius:12px;padding:10px 14px;
-  box-shadow:0 8px 24px rgba(14,59,54,.30);font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35}
-#lsAct b{font-weight:700}
-#lsAct button{font-family:inherit;font-size:14px;font-weight:700;border-radius:8px;padding:8px 14px;cursor:pointer;min-height:38px}
-#lsActSi{background:#10B981;color:#0E3B36;border:none}
-#lsActNo{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.55)}
+#lsAct{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;
+  background:rgba(14,59,54,.78);padding:16px;font-family:Calibri,Arial,sans-serif}
+#lsAct .lsActCaja{background:#fff;border-radius:12px;border-top:4px solid #10B981;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  max-width:440px;width:100%;padding:26px 24px 22px;text-align:center;color:#1a1a1a}
+#lsAct .lsActIco{width:56px;height:56px;margin:0 auto 12px;border-radius:50%;background:#E7F6EF;color:#0F7A5A;
+  display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1}
+#lsAct h2{margin:0 0 8px;font-size:21px;color:#0E3B36}
+#lsAct p{margin:0 0 18px;font-size:15.5px;line-height:1.45;color:#3d4f4b}
+#lsActSi{display:block;width:100%;background:#0F7A5A;color:#fff;border:none;border-radius:10px;font-family:inherit;
+  font-size:17px;font-weight:700;padding:14px 16px;min-height:52px;cursor:pointer}
+#lsActSi:hover{background:#0B6349}
+#lsActSi:focus{outline:3px solid #10B981;outline-offset:2px}
+@media (max-width:640px){
+  #lsAct{padding:0;background:#fff}
+  #lsAct .lsActCaja{max-width:none;height:100%;border-radius:0;box-shadow:none;border-top:6px solid #10B981;
+    display:flex;flex-direction:column;justify-content:center;padding:32px 22px}
+  #lsAct h2{font-size:24px}
+  #lsAct p{font-size:17px}
+  #lsActSi{font-size:19px;min-height:58px}
+}
 @media print{#lsAct{display:none!important}}
 </style>
 <script id="lsActJs">(function(){
   'use strict';
   if (window.__lsAct) return; window.__lsAct = true;
   if (!/^https?:$/.test(location.protocol)) return;
-  var url = location.origin + location.pathname, base = null, hasta = 0, mostrado = false;
+  var url = location.origin + location.pathname, base = null, pendiente = false, ultimaTecla = 0;
+  /* Mientras la persona escribe no se interrumpe: se espera a que pasen 20 s sin teclear. */
+  ['input','keydown','change'].forEach(function(ev){
+    document.addEventListener(ev, function(e){ if (!e.target || !e.target.closest || !e.target.closest('#lsAct')) ultimaTecla = Date.now(); }, true);
+  });
   function firma(){
     return fetch(url, { method: 'HEAD', cache: 'no-store' }).then(function(r){
       if (!r.ok) return null;
       return r.headers.get('etag') || r.headers.get('last-modified') || null;
     }, function(){ return null; });
   }
+  function recargar(){
+    /* Si la herramienta guarda borrador (p. ej. el formulario de auditoría), se guarda antes de recargar. */
+    if (ultimaTecla){
+      ['guardarBorradorAhora','guardarBorradorPeriodico','guardarBorrador'].some(function(n){
+        try { if (typeof window[n] === 'function'){ window[n](); return true; } } catch(e){}
+        return false;
+      });
+    }
+    setTimeout(function(){ location.reload(); }, 150);
+  }
   function aviso(){
-    if (mostrado || Date.now() < hasta) return;
+    if (document.getElementById('lsAct') && document.getElementById('lsAct').style.display === 'flex') return;
+    if (Date.now() - ultimaTecla < 20000){ setTimeout(aviso, 5000); return; }
     var d = document.getElementById('lsAct');
     if (!d){
-      d = document.createElement('div'); d.id = 'lsAct'; d.setAttribute('role', 'status');
-      d.innerHTML = '<span><b>Hay una versión nueva de esta herramienta.</b> Guarda lo que estés haciendo y toca Actualizar.</span>' +
-                    '<button id="lsActSi" type="button">Actualizar</button><button id="lsActNo" type="button">Después</button>';
-      document.body.appendChild(d);
-      document.getElementById('lsActSi').onclick = function(){ location.reload(); };
-      document.getElementById('lsActNo').onclick = function(){ d.style.display = 'none'; mostrado = false; hasta = Date.now() + 10 * 60000; };
+      d = document.createElement('div'); d.id = 'lsAct';
+      d.setAttribute('role', 'alertdialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-labelledby', 'lsActT');
+      d.innerHTML = '<div class="lsActCaja"><div class="lsActIco" aria-hidden="true">&#8635;</div>' +
+        '<h2 id="lsActT">Hay una versión nueva</h2>' +
+        '<p>Esta herramienta se actualizó. Toca <b>Actualizar</b> para seguir trabajando con la versión nueva.</p>' +
+        '<button id="lsActSi" type="button">Actualizar</button></div>';
+      (document.body || document.documentElement).appendChild(d);
+      document.getElementById('lsActSi').onclick = recargar;
     }
-    d.style.display = 'flex'; mostrado = true;
+    d.style.display = 'flex';
+    document.documentElement.style.overflow = 'hidden';
+    var b = document.getElementById('lsActSi'); if (b) b.focus();
   }
+  /* No se puede cerrar: Escape no hace nada, el foco no sale del aviso y si algo lo quita vuelve a salir. */
+  document.addEventListener('keydown', function(e){
+    var d = document.getElementById('lsAct'); if (!d || d.style.display !== 'flex') return;
+    if (e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); }
+    if (e.key === 'Tab'){ e.preventDefault(); var b = document.getElementById('lsActSi'); if (b) b.focus(); }
+  }, true);
+  setInterval(function(){
+    if (!pendiente) return;
+    var d = document.getElementById('lsAct');
+    if (!d || d.style.display !== 'flex') aviso();
+  }, 1500);
   function revisar(){
-    if (document.hidden) return;
+    if (document.hidden || pendiente) return;
     firma().then(function(f){
       if (!f) return;
       if (base === null){ base = f; return; }
-      if (f !== base) aviso();
+      if (f !== base){ pendiente = true; aviso(); }
     });
   }
   revisar();
   setInterval(revisar, 3 * 60000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) revisar(); });
 })();</script>
-<!-- ===== fin lives-actualizar v1 ===== -->
+<!-- ===== fin lives-actualizar v2 ===== -->
 
 
 
