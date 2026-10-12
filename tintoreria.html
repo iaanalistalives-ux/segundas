@@ -1094,24 +1094,35 @@ function realzarLineas(cfg){
   return cfg;
 }
 
-/* Comparativo entre años (12/10/2026): una línea por año, con el valor en cada punto
-   de cada año. El año más reciente va más grueso; colores LIVES por año. */
-var COL_ANIO=['#0F7A5A','#0E3B36','#4E6B78','#B45309','#F59E0B','#5F726C'];
+/* Comparativo entre años (12/10/2026, ajuste 2): una línea por año con colores bien
+   distintos (verde, naranja, azul, morado, gris, café) y el más reciente más grueso. */
+var COL_ANIO=['#0F7A5A','#E07B00','#2F6FB5','#8E44AD','#6B7280','#B45309'];
 function estiloAnio(a, anios){
   var k=anios.length-1-anios.indexOf(a); if(k<0) k=0;          /* 0 = año más reciente */
-  return {col:COL_ANIO[Math.min(k,COL_ANIO.length-1)], ancho:k===0?3.5:2.25, radio:k===0?4:3, prio:k};
+  return {col:COL_ANIO[Math.min(k,COL_ANIO.length-1)], ancho:k===0?3.5:2.5, radio:k===0?4:3, prio:k};
 }
-/* Etiquetas sin choques: si dos del mismo mes se tapan, una va arriba y la otra abajo;
-   si no hay espacio, se omite (el valor queda en el tooltip). Gana el año más reciente. */
-function etiquetasSinChoque(ch, fmt){
-  var A=ch.chartArea, ctx=ch.ctx, cands=[], obst=[], puestas=[];
-  if(!A) return;
-  var techo=A.top-((ch.options.layout&&ch.options.layout.padding&&ch.options.layout.padding.top)||0);
-  ctx.save(); ctx.font='700 10.5px Calibri, Arial, sans-serif';
+/* ¿qué líneas llevan etiqueta? (no la meta ni las ocultas) */
+function lineasEtq(ch){
+  var r=[];
   ch.data.datasets.forEach(function(ds,di){
     if((ds.type||ch.config.type)!=='line') return;
     if(ds.borderDash && ds.pointRadius===0) return;      /* la línea de meta no se etiqueta */
     var meta=ch.getDatasetMeta(di); if(meta.hidden || !ch.isDatasetVisible(di)) return;
+    r.push(di);
+  });
+  return r;
+}
+/* Coloca etiquetas sin choques: si dos del mismo mes se tapan, una va arriba y la otra
+   abajo; si no hay espacio, se omite (el valor queda en el tooltip). Gana el año más
+   reciente. Con soloDi, solo las de esa línea (y el choque solo entre ellas). */
+function colocarEtiquetas(ch, fmt, soloDi){
+  var A=ch.chartArea, ctx=ch.ctx, cands=[], obst=[], puestas=[];
+  if(!A) return {total:0, puestas:[]};
+  var techo=A.top-((ch.options.layout&&ch.options.layout.padding&&ch.options.layout.padding.top)||0);
+  ctx.save(); ctx.font='700 10.5px Calibri, Arial, sans-serif';
+  lineasEtq(ch).forEach(function(di){
+    if(soloDi!=null && di!==soloDi) return;
+    var ds=ch.data.datasets[di], meta=ch.getDatasetMeta(di);
     meta.data.forEach(function(pt,i){
       var v=ds.data[i]; if(v==null || !isFinite(pt.x) || !isFinite(pt.y)) return;
       var txt=fmt(v,i,ds);
@@ -1120,6 +1131,7 @@ function etiquetasSinChoque(ch, fmt){
       cands.push(c); obst.push({x1:pt.x-4,x2:pt.x+4,y1:pt.y-4,y2:pt.y+4,di:di,i:i});
     });
   });
+  ctx.restore();
   function caja(c,abajo){
     var cx=Math.min(Math.max(c.x, A.left+c.w/2+2), A.right-c.w/2-2);
     var base=abajo?c.y+17:c.y-6;
@@ -1152,6 +1164,10 @@ function etiquetasSinChoque(ch, fmt){
       if(cabe(b) && !choca(b,puestas) && !choca(b,obst,c)){ b.c=c; puestas.push(b); return; }
     }
   });
+  return {total:cands.length, puestas:puestas};
+}
+function pintarEtiquetas(ch, puestas){
+  var ctx=ch.ctx; ctx.save(); ctx.font='700 10.5px Calibri, Arial, sans-serif';
   puestas.forEach(function(b){
     ctx.fillStyle='rgba(255,255,255,.88)';
     ctx.fillRect(b.x1, b.y1, b.x2-b.x1, b.y2-b.y1);
@@ -1160,7 +1176,60 @@ function etiquetasSinChoque(ch, fmt){
   });
   ctx.restore();
 }
-var pointLabels={id:'pointLabels',afterDatasetsDraw:function(ch,a,opts){
+/* Gráfico ancho (≥56 px por mes y se omiten menos del 25 %): etiquetas siempre visibles.
+   Angosto: ninguna de entrada; al pasar el mouse (o tocar) sobre la línea de un año se
+   muestran todas las de ese año y las demás líneas quedan tenues. */
+function etiquetasSinChoque(ch, fmt){
+  var A=ch.chartArea; if(!A) return;
+  var n=(ch.data.labels||[]).length||1, slot=A.width/n;
+  ch.$etqModo='pasar';
+  if(slot>=56){
+    var r=colocarEtiquetas(ch, fmt);
+    if(!r.total || (r.total-r.puestas.length)/r.total < 0.25){
+      ch.$etqModo='visible'; ch.$etqSel=null; pintarEtiquetas(ch, r.puestas); return;
+    }
+  }
+  if(ch.$etqSel!=null && lineasEtq(ch).indexOf(ch.$etqSel)>=0)
+    pintarEtiquetas(ch, colocarEtiquetas(ch, fmt, ch.$etqSel).puestas);
+}
+/* línea más cercana en vertical al cursor (interpolando entre puntos), umbral 18 px */
+function lineaCercana(ch, x, y){
+  var A=ch.chartArea; if(!A || x<A.left-6 || x>A.right+6 || y<A.top-20 || y>A.bottom+6) return null;
+  var mejor=null, dmin=18;
+  lineasEtq(ch).forEach(function(di){
+    var ds=ch.data.datasets[di], pts=ch.getDatasetMeta(di).data, a=null, b=null;
+    pts.forEach(function(pt,i){
+      if(ds.data[i]==null || !isFinite(pt.y)) return;
+      if(pt.x<=x && (!a || pt.x>a.x)) a=pt;
+      if(pt.x>=x && (!b || pt.x<b.x)) b=pt;
+    });
+    var yy;
+    if(a && b) yy = (b.x===a.x) ? a.y : a.y+(b.y-a.y)*(x-a.x)/(b.x-a.x);
+    else { var p=a||b; if(!p || Math.abs(p.x-x)>12) return; yy=p.y; }
+    var d=Math.abs(yy-y);
+    if(d<dmin){ dmin=d; mejor=di; }
+  });
+  return mejor;
+}
+var pointLabels={id:'pointLabels',
+ /* modo al pasar: la línea elegida queda nítida y las demás tenues */
+ beforeDatasetDraw:function(ch,args,opts){
+  if(!(opts && opts.evitar) || ch.$etqModo!=='pasar' || ch.$etqSel==null) return;
+  if(args.index!==ch.$etqSel){ ch.ctx.save(); ch.ctx.globalAlpha=0.35; ch.$etqTenue=args.index; }
+ },
+ afterDatasetDraw:function(ch,args,opts){
+  if(ch.$etqTenue===args.index){ ch.ctx.restore(); ch.$etqTenue=null; }
+ },
+ afterEvent:function(ch,args,opts){
+  if(!(opts && opts.evitar) || ch.$etqModo!=='pasar') return;
+  var e=args.event, sel=ch.$etqSel==null?null:ch.$etqSel;
+  if(e.type==='mouseout') sel=null;
+  else if(e.type==='mousemove' || e.type==='click' || e.type==='touchstart' || e.type==='touchmove')
+    sel=lineaCercana(ch, e.x, e.y);
+  else return;
+  if(sel!==(ch.$etqSel==null?null:ch.$etqSel)){ ch.$etqSel=sel; ch.draw(); }
+ },
+ afterDatasetsDraw:function(ch,a,opts){
   var fmt=(opts&&opts.fmt)||function(v){ return v.toFixed(1)+'%'; };
   if(opts && opts.evitar){ etiquetasSinChoque(ch, fmt); return; }
   var soloTipo=(opts&&opts.soloTipo)||'line';
