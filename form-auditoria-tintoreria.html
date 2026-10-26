@@ -761,7 +761,7 @@ input.auto,select.auto{background:#eef7f4;border-color:#bfe3da}
 </head>
 <body>
 
-<div class="franja" id="permiso"><span id="permisoTxt">No figuras en la lista de quienes registran auditorías de tintorería: puedes mirar el formulario, pero no guardar.</span></div>
+<div class="franja" id="permiso"><span id="permisoTxt">No figuras en la lista de quienes registran auditorías de tintorería: puedes mirar el formulario, pero no guardar.</span><button type="button" id="btnQuienForm" style="display:none">Identificarme</button></div>
 <div class="franja" id="borradorBar"><span>💾 Continuando tu auditoría en progreso</span><button type="button" id="btnDescartar">Empezar en blanco</button></div>
 <div class="franja" id="modoEdicion"><span>✏️ Estás corrigiendo la auditoría <b id="editId"></b></span><button type="button" id="btnCancelEdit">Cancelar corrección</button></div>
 
@@ -903,11 +903,17 @@ const QS=new URLSearchParams(location.search);
 const EMBEBIDO=QS.get('modal')==='1';
 /* Quien registra: el nombre que llega del portal (?usuario=). Se guarda en la pestaña para que
    no se pierda al registrar otra. */
-const NOMBRE=(function(){
+/* Quién es: el nombre que llega del portal (?usuario=). Fuera del portal, sin ese dato, la persona se identifica
+   una vez (botón "Identificarme") y queda guardado en este equipo. */
+const QUIEN_KEY='lives_atin_quien';
+const NOMBRE_PORTAL=(function(){
   let n=(QS.get('usuario')||QS.get('nombre')||'').trim();
-  try{ if(n) sessionStorage.setItem('lives_nombre_portal',n); else n=(sessionStorage.getItem('lives_nombre_portal')||'').trim(); }catch(e){}
+  /* las ventanas internas (?modal=1) reciben el nombre del buscador: no lo guardan como si viniera del portal */
+  try{ if(n){ if(QS.get('modal')!=='1') sessionStorage.setItem('lives_nombre_portal',n); } else n=(sessionStorage.getItem('lives_nombre_portal')||'').trim(); }catch(e){}
   return n.toUpperCase();
 })();
+const NOMBRE=NOMBRE_PORTAL||(function(){ try{ return (localStorage.getItem(QUIEN_KEY)||'').trim().toUpperCase(); }catch(e){ return ''; } })();
+const ES_MANUAL=!NOMBRE_PORTAL && !!NOMBRE;
 const FAMILIAS=[['HILANDERIA','Defectos de hilado'],['TEJEDURIA','Defectos de tejido'],['TINTORERIA','Defectos de tintorería']];
 const BORRADOR_KEY='lives_atin_borrador_'+NOMBRE;
 let INI=null;
@@ -937,6 +943,38 @@ async function api(accion,p){
 }
 
 /* ---------- catálogos ---------- */
+
+/* ---------- identificarse (solo fuera del portal) ---------- */
+function abrirQuien(){
+  if(document.getElementById('ovQuien')) return;
+  const pers=(INI&&INI.personas)||[];
+  const ov=document.createElement('div'); ov.id='ovQuien';
+  ov.style.cssText='position:fixed;inset:0;z-index:2147482500;background:rgba(14,59,54,.55);display:flex;align-items:center;justify-content:center;padding:16px';
+  const bt='flex:1;min-height:44px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;';
+  ov.innerHTML='<div role="dialog" aria-label="¿Quién eres?" style="background:#fff;color:#0E3B36;border-radius:14px;max-width:420px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)">'+
+    '<div style="font-weight:700;font-size:18px;margin-bottom:4px">¿Quién eres?</div>'+
+    '<div style="font-size:13px;color:#5F726C;margin-bottom:12px">Elige tu nombre. Se queda en este equipo y firma lo que registres.</div>'+
+    '<select id="qSel" style="width:100%;min-height:44px;font-size:15px;margin-bottom:8px"><option value="">— Elige tu nombre —</option>'+pers.map(p=>'<option value="'+esc(p.nombre)+'">'+esc(p.nombre)+'</option>').join('')+'</select>'+
+    '<input id="qOtro" autocomplete="off" placeholder="Otra persona: escribe tu usuario (ej. grejano)" style="width:100%;min-height:44px;font-size:15px;margin-bottom:8px;padding:0 10px;box-sizing:border-box">'+
+    '<div id="qErr" style="color:#DC2626;font-size:13px;min-height:18px;margin-bottom:6px"></div>'+
+    '<div style="display:flex;gap:8px"><button type="button" id="qOk" style="'+bt+'border:none;background:#0F7A5A;color:#fff">Entrar</button>'+
+    '<button type="button" id="qNo" style="'+bt+'border:1px solid #DCE5E2;background:#fff;color:#0E3B36">Cancelar</button></div>'+
+    (ES_MANUAL?'<button type="button" id="qQuitar" style="width:100%;min-height:40px;margin-top:8px;border:none;background:none;color:#5F726C;font-family:inherit;font-size:13px;text-decoration:underline;cursor:pointer">Dejar de usar el nombre '+esc(NOMBRE)+' en este equipo</button>':'')+'</div>';
+  document.body.appendChild(ov);
+  const cerrar=()=>ov.remove();
+  document.getElementById('qSel').addEventListener('change',()=>{ document.getElementById('qOtro').value=''; document.getElementById('qErr').textContent=''; });
+  document.getElementById('qOtro').addEventListener('input',()=>{ document.getElementById('qSel').value=''; document.getElementById('qErr').textContent=''; });
+  document.getElementById('qNo').addEventListener('click',cerrar);
+  ov.addEventListener('click',e=>{ if(e.target===ov) cerrar(); });
+  document.getElementById('qOk').addEventListener('click',()=>{
+    const v=(document.getElementById('qOtro').value.trim()||document.getElementById('qSel').value).trim();
+    if(!v){ document.getElementById('qErr').textContent='Elige tu nombre o escribe tu usuario.'; return; }
+    try{ localStorage.setItem(QUIEN_KEY,v); }catch(e){ document.getElementById('qErr').textContent='Este navegador no deja guardar el nombre.'; return; }
+    location.reload();
+  });
+  const q=document.getElementById('qQuitar');
+  if(q) q.addEventListener('click',()=>{ try{ localStorage.removeItem(QUIEN_KEY); }catch(e){} location.reload(); });
+}
 async function iniciar(){
   $('fecha').value=hoyISO(); $('fecha').max=hoyISO();
   try{ INI=await api('inicio'); }
@@ -949,6 +987,8 @@ async function iniciar(){
     '<input data-k="std" autocomplete="off" aria-label="'+esc(p)+' STD"><input data-k="lavado" autocomplete="off" aria-label="'+esc(p)+' real lavado"><input data-k="vapor" autocomplete="off" aria-label="'+esc(p)+' real vapor"></div>').join('');
   ponerAuditor();
   if(!INI.puede){ $('permiso').classList.add('show'); $('save').disabled=true; }
+  if(!NOMBRE_PORTAL && !INI.puede){ const q=$('btnQuienForm'); q.style.display=''; q.textContent=NOMBRE?'Cambiar de persona':'Identificarme'; q.onclick=abrirQuien;
+    if(!NOMBRE) $('permisoTxt').textContent='Identifícate para poder registrar. Mientras tanto puedes mirar el formulario.'; }
   const idUrl=QS.get('id');
   if(idUrl){ await cargarParaCorregir(idUrl); }
   else { if(!restaurarBorrador()) ajustarRollos(1); }
@@ -967,6 +1007,8 @@ function ponerAuditor(){
       esc(yo?yo.nombre+' · '+yo.codigo:(NOMBRE||''))+'" placeholder="Entra desde el portal para registrar">';
   }
   $('auditor').addEventListener('change',()=>{ limpiarErr('auditor'); guardarBorrador(); });
+  if(ES_MANUAL){ const h=document.createElement('div'); h.className='hint'; h.innerHTML='Registrando como '+esc(NOMBRE)+' · <a href="#" id="qCambiar">No soy yo</a>'; w.appendChild(h);
+    h.querySelector('#qCambiar').addEventListener('click',e=>{ e.preventDefault(); abrirQuien(); }); }
 }
 
 /* ---------- partida ---------- */
