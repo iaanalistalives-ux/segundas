@@ -732,11 +732,17 @@ const $=id=>document.getElementById(id);
 const QS=new URLSearchParams(location.search);
 const ID=QS.get('id')||'';
 const EMBEBIDO=QS.get('modal')==='1';
-const NOMBRE=(function(){
+/* Quién es: el nombre que llega del portal (?usuario=). Fuera del portal, sin ese dato, la persona se identifica
+   una vez (botón "Identificarme") y queda guardado en este equipo. */
+const QUIEN_KEY='lives_atin_quien';
+const NOMBRE_PORTAL=(function(){
   let n=(QS.get('usuario')||QS.get('nombre')||'').trim();
-  try{ if(n) sessionStorage.setItem('lives_nombre_portal',n); else n=(sessionStorage.getItem('lives_nombre_portal')||'').trim(); }catch(e){}
+  /* las ventanas internas (?modal=1) reciben el nombre del buscador: no lo guardan como si viniera del portal */
+  try{ if(n){ if(QS.get('modal')!=='1') sessionStorage.setItem('lives_nombre_portal',n); } else n=(sessionStorage.getItem('lives_nombre_portal')||'').trim(); }catch(e){}
   return n.toUpperCase();
 })();
+const NOMBRE=NOMBRE_PORTAL||(function(){ try{ return (localStorage.getItem(QUIEN_KEY)||'').trim().toUpperCase(); }catch(e){ return ''; } })();
+const ES_MANUAL=!NOMBRE_PORTAL && !!NOMBRE;
 const FAMILIAS=[['HILANDERIA','Defectos de hilado'],['TEJEDURIA','Defectos de tejido'],['TINTORERIA','Defectos de tintorería']];
 const CAL={PRIME:'Prime',SEGUNDA:'Segunda',TERCERA:'Tercera',OBSERVADO:'Observado'};
 let D=null;
