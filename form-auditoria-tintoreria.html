@@ -627,7 +627,22 @@ body{margin:0;background:var(--bg);font-family:'Barlow',system-ui,sans-serif;col
 .card>.sec{display:flex;align-items:center;gap:8px;font-family:'Barlow Condensed';font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--navy);margin:0 0 12px}
 .card>.sec .dot{width:9px;height:9px;border-radius:50%;background:var(--amber)}
 /* Pestañas por sección: la auditora llena una parte a la vez, sin subir y bajar por la página */
-.tabs{position:sticky;top:0;z-index:35;display:flex;gap:6px;overflow-x:auto;background:var(--bg);margin:-14px -14px 12px;padding:10px 14px 8px;scrollbar-width:none}
+.stick{position:sticky;top:0;z-index:35;background:var(--bg);margin:0 -14px 12px;padding:8px 14px}
+.chip{display:none;font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
+.chip.on{display:block}
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+/* Corregir: siempre a la vista, en una sola línea; se abre al tocarlo */
+.corrDet{border:2px dashed #d4e0ee;background:#f7fafc;border-radius:12px;padding:0 14px;margin-bottom:14px}
+.corrDet>summary{min-height:44px;display:flex;align-items:center;gap:8px;cursor:pointer;list-style:none;font-family:'Barlow Condensed';font-weight:700;font-size:15px;text-transform:uppercase;letter-spacing:1px;color:var(--navy)}
+.corrDet>summary::-webkit-details-marker{display:none}
+.corrDet>summary::before{content:"▸";color:var(--amber)}
+.corrDet[open]>summary::before{content:"▾"}
+.corrDet[open]{padding-bottom:14px}
+/* Partida: siempre a la vista; una vez elegida se reduce a una línea con "Cambiar" */
+.pFija{display:none;align-items:center;justify-content:space-between;gap:10px;font-weight:700;color:var(--navy)}
+.pFija button{min-height:44px;padding:0 14px;border-radius:9px;border:1px solid var(--line);background:#fbfcfd;color:var(--navy);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.card.compacta>.sec,.card.compacta>.field,.card.compacta #partidaRes .aviso.ok{display:none}
+.card.compacta .pFija{display:flex}
 .tabs::-webkit-scrollbar{display:none}
 .tab{position:relative;flex:1 0 auto;min-height:44px;padding:10px 8px;border:1px solid var(--line);background:#fbfcfd;border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap}
 .tab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
@@ -752,46 +767,37 @@ input.auto,select.auto{background:#eef7f4;border-color:#bfe3da}
 
 <div class="wrap">
 
-  <nav class="tabs" id="tabs" role="tablist">
-    <button type="button" class="tab on" role="tab" data-t="0">Partida</button>
-    <button type="button" class="tab" role="tab" data-t="1">Tela</button>
-    <button type="button" class="tab" role="tab" data-t="2">Rollos</button>
-    <button type="button" class="tab" role="tab" data-t="3">Verificación</button>
-    <button type="button" class="tab" role="tab" data-t="4">Cierre</button>
-  </nav>
-
-  <div class="pane on" data-pane="0">
-  <!-- CORREGIR -->
-  <div class="card" id="panelCorregir" style="border:2px dashed #d4e0ee;background:#f7fafc">
-    <div class="sec"><span class="dot"></span>¿Necesitas corregir una auditoría que ya hiciste?</div>
+  <!-- CORREGIR (siempre a la vista) -->
+  <details class="corrDet" id="panelCorregir">
+    <summary>¿Corregir una auditoría?</summary>
     <div class="btnRow"><input id="corrPartida" autocomplete="off" placeholder="Escribe la partida"><button type="button" class="addbtn btnBuscar" id="btnCorr">Ver</button></div>
     <div class="lista" id="corrLista"></div>
-  </div>
+  </details>
 
-  <!-- PARTIDA -->
-  <div class="card">
+  <!-- PARTIDA (siempre a la vista) -->
+  <div class="card" id="cardPartida">
     <div class="sec"><span class="dot"></span>Partida</div>
     <div class="field">
       <label for="partida">Partida *</label>
       <div class="btnRow"><input id="partida" autocomplete="off" autocapitalize="characters" placeholder="Ej. 561012"><button type="button" class="addbtn btnBuscar" id="btnPartida">Buscar</button></div>
       <div class="hint">Escríbela como está en la tarjeta del rollo. Los datos de la tela salen solos de la base; lo que no salga, se llena a mano.</div>
     </div>
+    <div class="pFija"><span>✔ Partida <b id="pFijaTx"></b></span><button type="button" id="btnCambiarPartida">Cambiar</button></div>
     <div id="partidaRes"></div>
   </div>
 
-  <!-- LOTE Y MUESTRA -->
-  <div class="card">
-    <div class="sec"><span class="dot"></span>Lote y muestra</div>
-    <div class="grid3">
-      <div data-ls-fijo><label for="fecha">Fecha *</label><input id="fecha" type="date"></div>
-      <div><label for="lote">Tamaño de lote</label><input id="lote" inputmode="numeric" placeholder="rollos"></div>
-      <div><label for="muestra">Tamaño de muestra</label><input id="muestra" inputmode="numeric" placeholder="rollos"></div>
-    </div>
-    <div class="hint">El lote y la muestra van en rollos. Por cada rollo de la muestra sale en la pestaña Rollos un bloque para anotar su ancho y sus defectos.</div>
-  </div>
+  <div id="centinela"></div>
+  <div class="stick" id="stick">
+    <div class="chip" id="chipPartida"></div>
+    <nav class="tabs" id="tabs" role="tablist">
+      <button type="button" class="tab on" role="tab" data-t="0">Tela</button>
+      <button type="button" class="tab" role="tab" data-t="1">Rollos</button>
+      <button type="button" class="tab" role="tab" data-t="2">Verificación</button>
+      <button type="button" class="tab" role="tab" data-t="3">Cierre</button>
+    </nav>
   </div>
 
-  <div class="pane" data-pane="1">
+  <div class="pane on" data-pane="0">
   <!-- DATOS DE LA TELA -->
   <div class="card">
     <div class="sec"><span class="dot"></span>Datos de la tela</div>
@@ -811,9 +817,20 @@ input.auto,select.auto{background:#eef7f4;border-color:#bfe3da}
     </div>
     <datalist id="dlProv"></datalist><datalist id="dlRuta"></datalist>
   </div>
+
+  <!-- LOTE Y MUESTRA -->
+  <div class="card">
+    <div class="sec"><span class="dot"></span>Lote y muestra</div>
+    <div class="grid3">
+      <div data-ls-fijo><label for="fecha">Fecha *</label><input id="fecha" type="date"></div>
+      <div><label for="lote">Tamaño de lote</label><input id="lote" inputmode="numeric" placeholder="rollos"></div>
+      <div><label for="muestra">Tamaño de muestra</label><input id="muestra" inputmode="numeric" placeholder="rollos"></div>
+    </div>
+    <div class="hint">El lote y la muestra van en rollos. Por cada rollo de la muestra sale en la pestaña Rollos un bloque para anotar su ancho y sus defectos.</div>
+  </div>
   </div>
 
-  <div class="pane" data-pane="2">
+  <div class="pane" data-pane="1">
   <!-- ROLLOS -->
   <div class="card">
     <div class="sec"><span class="dot"></span>Rollos revisados y defectos</div>
@@ -824,7 +841,7 @@ input.auto,select.auto{background:#eef7f4;border-color:#bfe3da}
   </div>
   </div>
 
-  <div class="pane" data-pane="3">
+  <div class="pane" data-pane="2">
   <!-- VERIFICACIÓN -->
   <div class="card">
     <div class="sec"><span class="dot"></span>Datos de tela y verificación de resultados</div>
@@ -834,7 +851,7 @@ input.auto,select.auto{background:#eef7f4;border-color:#bfe3da}
   </div>
   </div>
 
-  <div class="pane" data-pane="4">
+  <div class="pane" data-pane="3">
   <!-- DICTAMEN -->
   <div class="card">
     <div class="sec"><span class="dot"></span>Dictamen</div>
@@ -968,7 +985,7 @@ async function buscarPartida(){
   if(!op.length){
     h+='<div class="aviso warn">Esta partida no está en la base ni se registró antes: llena los datos de la tela a mano.</div>';
   } else if(op.length===1){
-    aplicarOpcion(op[0]);
+    aplicarOpcion(op[0]); compactarPartida(true);
     h+='<div class="aviso ok">'+(op[0].fuente==='partidas'?'Datos de la base de partidas.':'Datos del último registro de esta partida en el reporte diario de tintorería.')+' Corrígelos si no coinciden con la tarjeta.</div>';
   } else {
     h+='<div class="aviso warn"><b>Esta partida tiene '+op.length+' telas.</b> Toca la que estás auditando:';
@@ -982,7 +999,7 @@ async function buscarPartida(){
   }
   $('partidaRes').innerHTML=h;
   $('partidaRes').querySelectorAll('.opc').forEach(b=>b.addEventListener('click',()=>{
-    const o=op[+b.dataset.i]; aplicarOpcion(o);
+    const o=op[+b.dataset.i]; aplicarOpcion(o); compactarPartida(true);
     b.parentNode.outerHTML='<div class="aviso ok">'+esc(o.tela)+' · '+esc(o.color)+'. Datos de la base de partidas; corrígelos si no coinciden.</div>';
     guardarBorrador();
   }));
@@ -1000,7 +1017,7 @@ function aplicarOpcion(o){
   if(s.hilado && !$('provHil').value) poner('provHil',s.hilado,1);
   if(s.teje && !$('provTej').value) poner('provTej',s.teje,1);
   if(s.ruta && !$('ruta').value) poner('ruta',s.ruta,1);
-  sincStd();
+  sincStd(); actualizarChip();
 }
 /* El ancho y la densidad STD pasan solos a la tabla de verificación si allí están vacíos */
 function sincStd(){
@@ -1115,13 +1132,25 @@ function marcarErr(id,msg){
 function numOk(v){ return v==='' || /^-?\d+([.,]\d+)?$/.test(v.trim()); }
 /* ---------- pestañas por sección ---------- */
 const PANES=Array.from(document.querySelectorAll('.pane')), TABS=Array.from(document.querySelectorAll('#tabs .tab'));
-function paneDe(el){ const p=el.closest('.pane'); return p?+p.dataset.pane:0; }
+function paneDe(el){ const p=el.closest('.pane'); return p?+p.dataset.pane:-1; }  /* -1 = parte fija de arriba (partida) */
 function irPestana(i,subir){
   PANES.forEach((p,k)=>p.classList.toggle('on',k===i));
   TABS.forEach((t,k)=>{ t.classList.toggle('on',k===i); t.setAttribute('aria-selected',k===i?'true':'false'); });
   if(TABS[i]) TABS[i].scrollIntoView({block:'nearest',inline:'center'});
-  if(subir!==false) window.scrollTo({top:0});
+  if(subir!==false){ const y=$('centinela').getBoundingClientRect().top+(window.scrollY||0); if((window.scrollY||0)>y) window.scrollTo({top:y}); }
 }
+/* Partida fija arriba: se reduce a una línea cuando ya se eligió, y un resumen queda pegado sobre las pestañas */
+function actualizarChip(){
+  const v=['partida','tela','color','grupo'].map(id=>$(id).value.trim()).filter(Boolean);
+  $('chipPartida').textContent=v.join(' · '); $('chipPartida').classList.toggle('on',v.length>0);
+}
+function compactarPartida(on){
+  $('cardPartida').classList.toggle('compacta',!!on);
+  if(on) $('pFijaTx').textContent=$('partida').value.trim();
+  actualizarChip();
+}
+function partidaYaElegida(){ return !!($('partida').value.trim() && ($('tela').value.trim() || S.codigo_tela)); }
+$('btnCambiarPartida').addEventListener('click',()=>{ compactarPartida(false); $('partida').focus(); $('partida').select(); });
 /* La marca roja de una pestaña se quita sola cuando ya no le queda ningún campo con error */
 function refrescarMarcas(){
   PANES.forEach((p,k)=>{ const hay=Array.from(p.querySelectorAll('.err,.errTxt')).some(e=>e.classList.contains('err')||e.style.display!=='none'); TABS[k].classList.toggle('tabErr',hay); });
@@ -1133,7 +1162,7 @@ PANES.forEach((p,k)=>{
   p.appendChild(n);
 });
 TABS.forEach((t,k)=>t.addEventListener('click',()=>irPestana(k)));
-document.querySelector('.wrap').addEventListener('input',()=>setTimeout(refrescarMarcas,0));
+document.querySelector('.wrap').addEventListener('input',()=>{ setTimeout(refrescarMarcas,0); actualizarChip(); });
 document.querySelector('.wrap').addEventListener('click',()=>setTimeout(refrescarMarcas,0));
 
 function validar(){
@@ -1157,9 +1186,10 @@ function validar(){
   if(!S.calidad){ $('segCal').classList.add('err'); fallas.push($('segCal')); }
   if(fallas.length){
     const pn=Math.min(...fallas.map(paneDe)); primero=fallas.find(e=>paneDe(e)===pn);
-    refrescarMarcas(); irPestana(pn,false);
+    if(pn===-1) compactarPartida(false);
+    refrescarMarcas(); if(pn>=0) irPestana(pn,false);
     primero.scrollIntoView({behavior:'smooth',block:'center'});
-    toast(fallas.some(e=>paneDe(e)!==pn)?'Revisa los campos en rojo; hay más en las pestañas marcadas.':'Revisa los campos marcados en rojo.','err'); return false; }
+    toast(fallas.some(e=>paneDe(e)!==pn&&paneDe(e)>=0)?'Revisa los campos en rojo; hay más en las pestañas marcadas.':'Revisa los campos marcados en rojo.','err'); return false; }
   return true;
 }
 
@@ -1226,7 +1256,7 @@ function limpiar(conservar){
   $('modoEdicion').classList.remove('show'); $('borradorBar').classList.remove('show');
   ajustarRollos(1); calcular();
   CARGANDO=false; marcarSucio(false);
-  TABS.forEach(t=>t.classList.remove('tabErr')); irPestana(0,false);
+  TABS.forEach(t=>t.classList.remove('tabErr')); irPestana(0,false); compactarPartida(false);
 }
 
 /* ---------- corregir ---------- */
@@ -1257,7 +1287,7 @@ async function cargarParaCorregir(id){
   if(!d.puede_editar){ toast('Solo quien hizo la auditoría puede corregirla.','err'); return; }
   llenar(d);
   S.editId=d.cab.id; $('editId').textContent=d.cab.id; $('modoEdicion').classList.add('show');
-  $('corrLista').innerHTML=''; irPestana(0,false); window.scrollTo({top:0,behavior:'smooth'});
+  $('corrLista').innerHTML=''; $('panelCorregir').open=false; irPestana(0,false); compactarPartida(partidaYaElegida()); window.scrollTo({top:0,behavior:'smooth'});
 }
 function llenar(d){
   CARGANDO=true;
@@ -1301,7 +1331,7 @@ function restaurarBorrador(){
     row.querySelector('[data-k=std]').value=p.std||''; row.querySelector('[data-k=lavado]').value=p.lavado||''; row.querySelector('[data-k=vapor]').value=p.vapor||''; });
   pintarSeg('segTono',S.tono); pintarSeg('segDict',S.dictamen); pintarSeg('segCal',S.calidad);
   if(!S.rollos.length) S.rollos=[rolloVacio(1)];
-  renderRollos();
+  renderRollos(); compactarPartida(partidaYaElegida());
   if(S.editId){ $('editId').textContent=S.editId; $('modoEdicion').classList.add('show'); }
   $('borradorBar').classList.add('show');
   CARGANDO=false; SUCIO=false; marcarSucio(true);
