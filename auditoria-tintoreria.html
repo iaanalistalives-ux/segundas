@@ -716,6 +716,7 @@ body.modalAbierta{overflow:hidden}
 <div class="wrap">
   <div class="bar" id="barra">
     <button class="btn primary" id="btnRegistrar" type="button" disabled>Registrar</button>
+    <button class="btn" id="btnDash" type="button" title="Dashboard del reporte diario de tintorería">Dashboard</button>
     <label>Desde<input type="date" id="fDesde"></label>
     <label>Hasta<input type="date" id="fHasta"></label>
     <label>Tintorería<select id="fTin"><option value="">Todas</option></select></label>
@@ -839,9 +840,9 @@ $('tbody').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-id]'
 /* ---------- ventana dentro de la página ---------- */
 let M_SUCIO=false, M_REFRESCAR=false;
 function abrir(tipo,id){
-  const u=new URL(tipo==='ver'?'ver-auditoria-tintoreria.html':'form-auditoria-tintoreria.html',location.href);
+  const u=new URL({ver:'ver-auditoria-tintoreria.html',form:'form-auditoria-tintoreria.html',dash:'tintoreria.html'}[tipo],location.href);
   u.searchParams.set('modal','1'); if(NOMBRE) u.searchParams.set('usuario',NOMBRE); if(id) u.searchParams.set('id',id);
-  $('mTit').textContent=tipo==='ver'?'Reporte de auditoría':'Registrar auditoría de tintorería';
+  $('mTit').textContent={ver:'Reporte de auditoría',form:'Registrar auditoría de tintorería',dash:'Dashboard de tintorería'}[tipo];
   M_SUCIO=false; $('mFrame').src=u.toString();
   $('modal').classList.add('show'); document.body.classList.add('modalAbierta');
 }
@@ -852,6 +853,7 @@ function cerrar(forzar){
     if(M_REFRESCAR){ M_REFRESCAR=false; cargar(); } },60);
 }
 $('btnRegistrar').addEventListener('click',()=>abrir('form'));
+$('btnDash').addEventListener('click',()=>abrir('dash'));
 $('mCerrar').addEventListener('click',()=>cerrar(false));
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('modal').classList.contains('show')) cerrar(false); });
 window.addEventListener('message',e=>{
