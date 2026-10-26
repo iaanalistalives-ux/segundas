@@ -18,8 +18,17 @@ Formulario "Registro y carga · Calidad Textil" (`SOLO_VISTA`):
 - `carga-corte.html` (v_carga, COR) — **carga** de los Excel del sistema de Corte: liquidación del mes (hoja `LIQ_CORTE`), archivo INDICADOR (`TOTAL O-CORTE` y `O-CORTE RECHAZADAS`), inspecciones (`REPORTE`) y la carga inicial de auditorías (`DATA LIVES`). Avisa si el mes ya estaba cargado y pide "Reemplazar". Las inspecciones sin origen se clasifican a mano (TEXTIL, CORTE o S/O).
 - `partidas-revisadas.html` (v_rep) — consulta de partidas revisadas de tintorería con filtros, suma de peso por taller, "Copiar tabla" para el correo e imprimir.
 
+Auditoría de Tintorería (FO-265 "Reporte control de calidad tela acabada", desde el 26/10/2026; pantallas propias, no salen de las plantillas):
+- `auditoria-tintoreria.html` — **entrada** (consulta): filtros, 4 KPI, lista con regla 500, Excel LIVES (`LS_XLS`) e "Imprimir" con el formato de la hoja "Control de auditoría en servicio de tintorería" (una hoja por tintorería). El botón **Registrar** abre el formulario en una ventana dentro de la página; cada fila abre el reporte en la misma ventana.
+- `form-auditoria-tintoreria.html` — **formulario** (también con link directo para el celular). La partida busca primero en `partidas` (escribe "561012" y encuentra "26-561012"; si hay varias telas, se elige); si no está, en lo ya registrado en `ctex_tint`; si tampoco, se llena a mano. Un bloque por rollo de la muestra con los 28 defectos en 3 familias (+/−), tabla de verificación, dictamen (Aprobado/Rechazado + Prime/Seg./Terc./Obs.), firmas. Borrador en el equipo, "¿Necesitas corregir…?" y `?id=` para corregir. Con `?modal=1` avisa a la entrada por `postMessage` (`lsAtin`: sucio, guardado, cerrar).
+- `ver-auditoria-tintoreria.html?id=` — **reporte** con el formato de la hoja FO-265 (imprime en una A4 horizontal); Corregir y Anular para quien puede.
+
 ## Base de datos (Supabase lives-datos)
-Solo dos funciones:
+Auditoría de Tintorería (registro `CT05 auditoria tintoreria fo265`): una sola puerta `ctex_atin_api(p_accion, p)` con `inicio`, `partida`, `guardar`, `buscar`, `ver`, `anular`. Tablas `ctex_atin` (cabecera), `ctex_atin_rollos`, `ctex_atin_defectos`, `ctex_atin_param` y `ctex_atin_cat` (base de extracción: 4 personas del Excel con código, 6 tintorerías, 28 defectos con su equivalente en el catálogo del resumen, 10 parámetros y el ajuste `ALIMENTA_RESUMEN`). Lee `partidas` y `ctex_tint`.
+- Conexión con el resumen diario: si `ctex_atin_cat` AJUSTE `ALIMENTA_RESUMEN` = `SI`, cada auditoría crea/corrige su fila en `ctex_tint` (estado CALIDAD APROBADA / OBSERVADO / RECHAZADO, los 2 defectos más frecuentes) y al anular la borra (queda en `ctex_log`). Hoy está en `NO` (prueba en paralelo, para no duplicar lo que digita Grecia).
+- Permiso: `ctex_atin_puede(p_usuario)`: las personas de `ctex_atin_cat` (firman con su nombre, no se cambia) o quien tiene `ctex_puede_escribir` / Datos e IA (eligen el auditor). Rodrigo nunca. Cada auditor corrige y anula solo lo suyo.
+
+Resto de la herramienta, dos funciones:
 - `ctex_leer` (`p_accion`): `alias`, `catalogos`, `indices`, `corte_res`, `corte_rech`, `read_deftex`, `tint_res`, `rep_datos`, `rep_listas`, `buscar_oc`, `buscar_partida`, `por_estado`, `status`, `origenes`. Lee `ctex_catalogos`, `ctex_telas`, `ctex_corte_aud`, `ctex_corte_ins`, `ctex_corte_liq`, `ctex_def_tex`, `ctex_def_tex_det`, `ctex_tint` y las tablas de segundas `ctex_seg_det`, `ctex_seg_tot`.
 - `ctex_guardar` (`d.tabla`): `AUD_FORM`, `DEFTEX_FORM`, `TINT_FORM`, `CORREGIR`, `CAMBIO_ESTADO`, `CORTE_LIQ`, `CORTE_INS`, `CORTE_AUD`. Escribe en esas mismas tablas `ctex_*`.
 - No usa Storage ni lee tablas directo. Sin Apps Script desde el 24/09/2026.
@@ -29,7 +38,7 @@ Según las entradas por el portal de los últimos 30 días al 21/10/2026: 4 pers
 
 ## Quién puede registrar
 - Lo decide la base: `ctex_guardar` exige sesión y la función de permiso `ctex_puede_escribir`. El nombre de quien registra sale del usuario del portal.
-- A Sistemas: `ctex_puede_escribir` es la pieza que reemplazan con su seguridad.
+- A Sistemas: `ctex_puede_escribir` y `ctex_atin_puede` son las piezas que reemplazan con su seguridad.
 
 ## Pendientes vistos al escribir esto (21/10/2026)
 - En los formularios, la barra lateral enlaza a `segundas.html` (retirada) y a `dashboard.html` (no existe): enlaces rotos, hoy ocultos en modo de una sola vista.
