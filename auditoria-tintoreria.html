@@ -655,6 +655,7 @@ td.n{text-align:right;white-space:nowrap}
 td.obs{max-width:280px;color:#555}
 td.def{max-width:260px;color:var(--rose)}
 .st{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.btn.vpdf{padding:4px 12px;min-height:32px;font-size:12px;white-space:nowrap}
 .st.ap{background:#E7F4EF;color:var(--sage-dark)}.st.re{background:#FCEBEB;color:var(--rose)}.st.ov{background:#FEF3E2;color:var(--taupe)}
 .lsTope500{font-size:12px;color:#5F726C;text-align:center;padding:8px 0}
 .vacio{padding:26px 10px;text-align:center;color:var(--stone);font-size:14px}
@@ -735,9 +736,9 @@ body.modalAbierta{overflow:hidden}
   <div class="panel">
     <span class="tira"></span>
     <div class="pt">Auditorías de tintorería</div>
-    <div class="ph">Una fila por partida auditada (reporte FO-265), lo más reciente arriba. Toca una fila para ver el reporte completo.</div>
+    <div class="ph">Una fila por partida auditada (reporte FO-265), lo más reciente arriba. Toca Ver PDF (o la fila) para ver el reporte completo y compartirlo en PDF.</div>
     <div class="tscroll"><table>
-      <thead><tr><th>Fecha</th><th>Partida</th><th>Artículo</th><th>Grupo</th><th>Color</th><th style="text-align:right">Peso (kg)</th><th>Auditor</th><th>Estado</th><th>Defectos</th><th>Obs.</th><th>Tintorería</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Partida</th><th>Artículo</th><th>Grupo</th><th>Color</th><th style="text-align:right">Peso (kg)</th><th>Auditor</th><th>Estado</th><th>Defectos</th><th>Obs.</th><th>Tintorería</th><th>Reporte</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
     <div id="vacio" class="vacio" style="display:none"></div>
@@ -824,7 +825,8 @@ function render(){
     return '<tr data-id="'+esc(f.id)+'"><td data-l="Fecha">'+fFecha(f.fecha)+'</td><td data-l="Partida"><b>'+esc(f.partida)+'</b></td><td data-l="Artículo">'+esc(f.tela)+'</td>'+
       '<td data-l="Grupo">'+esc(f.grupo)+'</td><td data-l="Color">'+esc(f.color)+'</td><td class="n" data-l="Peso (kg)">'+num(f.peso)+'</td><td data-l="Auditor">'+esc(f.auditor)+'</td>'+
       '<td data-l="Estado"><span class="st '+e[0]+'">'+e[1]+(CAL[f.calidad]?' · '+CAL[f.calidad]:'')+'</span></td><td class="def" data-l="Defectos">'+esc(f.defectos||'')+'</td>'+
-      '<td class="obs" data-l="Obs.">'+esc(f.obs)+'</td><td data-l="Tintorería">'+esc(f.tintoreria)+'</td></tr>'; }).join('');
+      '<td class="obs" data-l="Obs.">'+esc(f.obs)+'</td><td data-l="Tintorería">'+esc(f.tintoreria)+'</td>'+
+      '<td data-l="Reporte"><button type="button" class="btn vpdf" title="Ver el reporte FO-265 y compartirlo en PDF">Ver PDF</button></td></tr>'; }).join('');
   $('vacio').style.display=n?'none':'block';
   $('vacio').textContent=FILAS.length?'No hay auditorías con estos filtros. Cambia o limpia los filtros.':'Todavía no hay auditorías de tintorería registradas.';
   const t=$('tope'); if(!hayFiltro() && n>500){ t.textContent='Se muestran los 500 registros más recientes de '+num(n,0)+'. Usa los filtros para ver los demás.'; t.style.display='block'; } else t.style.display='none';

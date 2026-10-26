@@ -712,9 +712,12 @@ html[data-tema="oscuro"] .enc img{filter:invert(1)}
 </style>
 </head>
 <body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <div class="wrap">
   <div class="toolbar" id="barra">
-    <button class="btn" id="btnImprimir" type="button">Imprimir / PDF</button>
+    <button class="btn" id="btnPdf" type="button">Compartir PDF</button>
+    <button class="btn" id="btnImprimir" type="button">Imprimir</button>
     <button class="btn" id="btnCorregir" type="button" style="display:none">Corregir</button>
     <button class="btn rojo" id="btnAnular" type="button" style="display:none">Anular</button>
   </div>
@@ -819,6 +822,42 @@ function pintar(){
   $('btnAnular').style.display=puede?'':'none';
 }
 $('btnImprimir').addEventListener('click',()=>window.print());
+
+/* PDF del reporte (una A4 horizontal, como la hoja FO-265): captura del reporte con html2canvas + jsPDF.
+   Se comparte por el menú del equipo (WhatsApp, correo); si no se puede, se descarga. */
+/* html2canvas no dibuja bien el texto vertical (sale al revés y encimado): en la copia que se captura, cada
+   cabecera vertical se cambia por una imagen del mismo texto girado, leído de abajo hacia arriba. */
+function verticalesAImagen(doc){
+  doc.querySelectorAll('table.fo th.vert span').forEach(sp=>{
+    const cs=doc.defaultView.getComputedStyle(sp), t=sp.textContent, fs=parseFloat(cs.fontSize)||11, k=3;
+    const c=doc.createElement('canvas'), x=c.getContext('2d'), font=(cs.fontWeight||'700')+' '+(fs*k)+'px '+(cs.fontFamily||'sans-serif');
+    x.font=font; const w=Math.ceil(x.measureText(t).width)+2, h=Math.ceil(fs*1.4*k);
+    c.width=h; c.height=w; x.font=font; x.fillStyle=cs.color; x.textBaseline='middle';
+    x.translate(h/2,w); x.rotate(-Math.PI/2); x.fillText(t,0,0);
+    const im=doc.createElement('img'); im.src=c.toDataURL('image/png');
+    im.style.cssText='display:block;margin:0 auto;width:'+(h/k)+'px;height:'+(w/k)+'px';
+    sp.replaceWith(im);
+  });
+}
+async function compartirPdf(){
+  const b=$('btnPdf'); if(!D||b.disabled) return;
+  const t0=b.textContent; b.disabled=true; b.textContent='Generando PDF…';
+  try{
+    if(!window.html2canvas||!window.jspdf) throw new Error('No se pudo cargar el generador de PDF. Revisa tu señal y vuelve a intentar.');
+    const canvas=await html2canvas($('cont'),{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:1200,onclone:verticalesAImagen});
+    const pdf=new window.jspdf.jsPDF('l','mm','a4');
+    const W=297,H=210,M=8, k=Math.min((W-2*M)/canvas.width,(H-2*M)/canvas.height), w=canvas.width*k, h=canvas.height*k;
+    pdf.addImage(canvas.toDataURL('image/jpeg',0.92),'JPEG',(W-w)/2,M,w,h);
+    const c=D.cab||{}, nombre=('Auditoria_Tintoreria_'+String(c.partida||ID).replace(/[^A-Za-z0-9-]+/g,'')+'_'+String(c.fecha||'').slice(0,10)+'.pdf');
+    const file=new File([pdf.output('blob')],nombre,{type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      try{ await navigator.share({files:[file],title:'Auditoría de tintorería '+(c.partida||''),text:'Reporte FO-265 · partida '+(c.partida||'')}); }
+      catch(e){ if(e&&e.name==='AbortError') return; pdf.save(nombre); }
+    } else pdf.save(nombre);
+  }catch(err){ alert('No se pudo generar el PDF: '+(err.message||err)); }
+  finally{ b.disabled=false; b.textContent=t0; }
+}
+$('btnPdf').addEventListener('click',compartirPdf);
 $('btnCorregir').addEventListener('click',()=>{
   const u=new URL('form-auditoria-tintoreria.html',location.href); u.searchParams.set('id',ID);
   if(NOMBRE) u.searchParams.set('usuario',NOMBRE); if(EMBEBIDO) u.searchParams.set('modal','1'); location.href=u.toString();
