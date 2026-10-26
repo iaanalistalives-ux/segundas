@@ -948,13 +948,16 @@ async function api(accion,p){
 function abrirQuien(){
   if(document.getElementById('ovQuien')) return;
   const pers=(INI&&INI.personas)||[];
+  const regs=(INI&&INI.registran)||[];
   const ov=document.createElement('div'); ov.id='ovQuien';
   ov.style.cssText='position:fixed;inset:0;z-index:2147482500;background:rgba(14,59,54,.55);display:flex;align-items:center;justify-content:center;padding:16px';
   const bt='flex:1;min-height:44px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;';
   ov.innerHTML='<div role="dialog" aria-label="¿Quién eres?" style="background:#fff;color:#0E3B36;border-radius:14px;max-width:420px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)">'+
     '<div style="font-weight:700;font-size:18px;margin-bottom:4px">¿Quién eres?</div>'+
     '<div style="font-size:13px;color:#5F726C;margin-bottom:12px">Elige tu nombre. Se queda en este equipo y firma lo que registres.</div>'+
-    '<select id="qSel" style="width:100%;min-height:44px;font-size:15px;margin-bottom:8px"><option value="">— Elige tu nombre —</option>'+pers.map(p=>'<option value="'+esc(p.nombre)+'">'+esc(p.nombre)+'</option>').join('')+'</select>'+
+    '<select id="qSel" style="width:100%;min-height:44px;font-size:15px;margin-bottom:8px"><option value="">— Elige tu nombre —</option>'+
+      (regs.length?'<optgroup label="Quienes registran">'+regs.map(p=>'<option value="'+esc(p.usuario)+'">'+esc(p.nombre)+'</option>').join('')+'</optgroup>':'')+
+      '<optgroup label="Auditoras">'+pers.map(p=>'<option value="'+esc(p.nombre)+'">'+esc(p.nombre)+'</option>').join('')+'</optgroup></select>'+
     '<input id="qOtro" autocomplete="off" placeholder="Otra persona: escribe tu usuario (ej. grejano)" style="width:100%;min-height:44px;font-size:15px;margin-bottom:8px;padding:0 10px;box-sizing:border-box">'+
     '<div id="qErr" style="color:#DC2626;font-size:13px;min-height:18px;margin-bottom:6px"></div>'+
     '<div style="display:flex;gap:8px"><button type="button" id="qOk" style="'+bt+'border:none;background:#0F7A5A;color:#fff">Entrar</button>'+
