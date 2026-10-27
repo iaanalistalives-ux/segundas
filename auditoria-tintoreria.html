@@ -733,12 +733,6 @@ body.modalAbierta{overflow:hidden}
     <div class="lsAcc"><button class="btn" id="btnImprimir" type="button">Imprimir</button></div>
   </div>
   <div class="errBox" id="errBox"></div>
-  <div class="kpis" id="kpis">
-    <div class="kpi hero"><span class="banda"></span><div class="cuerpo"><div class="l">Partidas auditadas</div><div class="row"><span class="v" id="kN">—</span></div><div class="s" id="kNs"></div></div></div>
-    <div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l">Partidas rechazadas</div><div class="row"><span class="v" id="kR">—</span></div><div class="s" id="kRs"></div></div></div>
-    <div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l">Kilos auditados</div><div class="row"><span class="v" id="kK">—</span></div><div class="s" id="kKs"></div></div></div>
-    <div class="kpi neutro"><span class="banda"></span><div class="cuerpo"><div class="l">Defectos por rollo</div><div class="row"><span class="v" id="kD">—</span></div><div class="s" id="kDs"></div></div></div>
-  </div>
   <div class="panel">
     <span class="tira"></span>
     <div class="pt">Auditorías de tintorería</div>
@@ -864,10 +858,6 @@ function render(){
   const n=VISTAS.length, rech=VISTAS.filter(f=>f.dictamen==='RECHAZADO').length;
   const kg=VISTAS.reduce((a,f)=>a+(+f.peso||0),0);
   const conRollos=VISTAS.filter(f=>+f.rollos>0), def=conRollos.reduce((a,f)=>a+(+f.total||0),0), rol=conRollos.reduce((a,f)=>a+(+f.rollos||0),0);
-  $('kN').textContent=n?num(n,0):'—'; $('kNs').textContent=n?(n-rech)+' aprobadas · '+rech+' rechazadas':'';
-  $('kR').textContent=n?num(rech/n*100,1)+'%':'—'; $('kRs').textContent=n?rech+' de '+n+' partidas auditadas':'';
-  $('kK').textContent=n?num(kg,0):'—'; $('kKs').textContent=n?'peso de las partidas auditadas':'';
-  $('kD').textContent=rol?num(def/rol,2):'—'; $('kDs').textContent=rol?def+' defectos en '+rol+' rollos de muestra':'';
   const lista=hayFiltro()?VISTAS:VISTAS.slice(0,500);
   $('tbody').innerHTML=lista.map(f=>{ const e=estado(f);
     return '<tr data-id="'+esc(f.id)+'"><td data-l="Fecha">'+fFecha(f.fecha)+'</td><td data-l="Partida"><b>'+esc(f.partida)+'</b></td><td data-l="Artículo">'+esc(f.tela)+'</td>'+
