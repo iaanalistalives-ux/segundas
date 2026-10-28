@@ -651,17 +651,21 @@ table.fo th.vert span{writing-mode:vertical-rl;transform:rotate(180deg);white-sp
 table.fo td.con{color:var(--rose);font-weight:700}
 table.fo td.tot,table.fo th.tot{font-weight:700;background:#F7FAF9}
 table.fo tfoot td{font-weight:700;background:var(--warm-light)}
-.abajo{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;margin-top:6px}
+table.fo td.tipo{width:20%;font-weight:700;color:#0E3B36;background:#F7FAF9;text-align:left;vertical-align:top;padding:5px 8px}
+table.fo td.tipo small{display:block;font-weight:400;color:var(--stone);font-size:11.5px}
+table.fo td.dn{text-align:left;padding:5px 8px;color:var(--rose);font-weight:700}
+table.fo tr.anc td{background:#F7FAF9;color:var(--stone)}
+table.fo .izq{text-align:left;padding-left:8px}
+.sinDef{border:1px solid var(--warm);border-radius:8px;padding:10px 12px;font-size:13.5px;color:var(--stone);text-align:center;margin-top:8px}
+.abajo{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:18px;margin-top:6px;align-items:stretch}
+.abajo>.com{display:flex;flex-direction:column}
 table.ver{border-collapse:collapse;width:100%;font-size:13px}
 table.ver th,table.ver td{border:1px solid var(--warm);padding:6px 8px}
 table.ver th{background:var(--warm-light);font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--stone);text-align:center}
 table.ver td:first-child{font-weight:700;color:#0E3B36}
 table.ver td{text-align:center}
 table.ver td:first-child{text-align:left}
-.obs{white-space:pre-wrap;border:1px solid var(--warm);border-radius:8px;padding:10px 12px;min-height:70px;font-size:14px}
-.firmas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:22px}
-.firma{border-top:1.5px solid #0E3B36;padding-top:6px;font-size:12px;color:var(--stone)}
-.firma b{display:block;font-size:14px;color:#0E3B36}
+.obs{white-space:pre-wrap;border:1px solid var(--warm);border-radius:8px;padding:10px 12px;min-height:70px;font-size:14px;flex:1}
 .pie{margin-top:16px;font-size:11.5px;color:var(--stone);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .msg{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:24px;text-align:center;font-size:15px}
 .msg.err{color:var(--rose)}
@@ -674,8 +678,8 @@ html[data-tema="oscuro"] .enc img{filter:invert(1)}
   .enc h1{font-size:16px}
   .datos{grid-template-columns:1fr 1fr;gap:6px 12px}
   .dato .v{font-size:14px}
-  .firmas{grid-template-columns:1fr}
   .btn{min-height:44px}
+  table.fo{font-size:12px} table.fo td.tipo{width:auto}
 }
 @media print{
   @page{size:A4 landscape;margin:8mm}
@@ -687,11 +691,8 @@ html[data-tema="oscuro"] .enc img{filter:invert(1)}
   .hoja .tira{display:none}
   .datos{grid-template-columns:repeat(4,minmax(0,1fr))}
   .abajo{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}
-  .firmas{grid-template-columns:repeat(3,minmax(0,1fr))}
   .tscroll{overflow:visible;border:none}
-  table.fo{font-size:10px}
-  table.fo th.vert{height:96px;min-width:0}
-  table.fo th.vert span{font-size:9px}
+  table.fo{font-size:10.5px}
   .enc img{filter:none!important;height:30px}
   .enc{margin-bottom:8px}
   .enc h1{font-size:16px}
@@ -701,12 +702,10 @@ html[data-tema="oscuro"] .enc img{filter:invert(1)}
   .dato .v{font-size:11.5px}
   .sec{font-size:12px;margin:8px 0 2px}
   .ph{font-size:9.5px;margin-bottom:4px}
-  table.fo th,table.fo td{padding:2px}
-  table.fo th.vert{height:78px}
+  table.fo th,table.fo td{padding:2px 4px}
   table.ver{font-size:10.5px}
   table.ver th,table.ver td{padding:2px 6px}
   .obs{min-height:40px;font-size:11.5px;padding:6px 8px}
-  .firmas{margin-top:26px}
   .pie{margin-top:6px;font-size:9.5px}
 }
 </style>
@@ -748,7 +747,7 @@ const CAL={PRIME:'Prime',SEGUNDA:'Segunda',TERCERA:'Tercera',OBSERVADO:'Observad
 let D=null;
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fFecha(s){ if(!s) return ''; const p=String(s).slice(0,10).split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
-function num(v){ if(v===null||v===undefined||v==='') return ''; const n=Number(v); return isFinite(n)?n.toLocaleString('es-PE',{maximumFractionDigits:1}):String(v); }
+function num(v,d){ if(v===null||v===undefined||v==='') return ''; const n=Number(v); return isFinite(n)?n.toLocaleString('es-PE',{maximumFractionDigits:d==null?1:d}):String(v); }
 function val(v){ return (v===null||v===undefined||v==='')?'—':esc(v); }
 async function api(accion,p){
   let r;
@@ -781,44 +780,37 @@ function pintar(){
   h+='<div class="datos">'+
     dato('Partida',val(c.partida))+dato('Fecha',val(fFecha(c.fecha)))+dato('Tintorería',val(c.tintoreria),'ancho2')+
     dato('Tela / Art. / Título',val(c.tela),'ancho2')+dato('Color',val(c.color))+dato('Cliente / Grupo',val(c.grupo))+
-    dato('Peso',c.peso_kg==null?'—':num(c.peso_kg)+' kg')+dato('OP',val(c.op))+dato('Ancho STD',val(c.ancho_std))+dato('Densidad STD',val(c.densidad_std))+
+    dato('Peso',c.peso_kg==null?'—':num(c.peso_kg)+' kg')+dato('OP',val(c.op))+dato('Ancho STD',c.ancho_std==null?'—':num(c.ancho_std,2))+dato('Densidad STD',val(c.densidad_std))+
     dato('Tono',c.tono==='A'?'A · aprobado':(c.tono==='R'?'R · rechazado':'—'))+dato('Ruta de tela',val(c.ruta_tela))+dato('Prov. hilado',val(c.prov_hilado))+dato('Prov. teje',val(c.prov_teje))+
     dato('Tamaño de lote',c.lote_rollos==null?'—':c.lote_rollos+' rollos')+dato('Tamaño de muestra',c.muestra_rollos==null?'—':c.muestra_rollos+' rollos')+
     dato('Total de defectos',String(totalGen))+dato('Defectos por rollo',rollos.length?num(totalGen/rollos.length):'—')+
+    dato('Auditor',val(c.auditor),'ancho2')+dato('Sup. tintorería',val(c.sup_tintoreria))+dato('Sup. LIVES',val(c.sup_lives))+
     '</div>';
-  // defectos encontrados (resumen para leer rápido, sobre todo en celular)
-  const enc=defs.filter(d=>usados[d.cod]>0).sort((a,b)=>usados[b.cod]-usados[a.cod]);
-  h+='<div class="sec no-print">Defectos encontrados</div>';
-  h+=enc.length?'<div class="chips no-print">'+enc.map(d=>'<span class="chip">'+esc(d.nombre)+' · '+usados[d.cod]+'</span>').join('')+'</div>'
-               :'<div class="ph no-print">La muestra no tuvo defectos.</div>';
-  // tabla FO-265
-  h+='<div class="sec">Detalle por rollo</div><div class="ph">Cantidad de cada defecto en cada rollo de la muestra; total por rollo a la derecha.</div>';
-  h+='<div class="tscroll"><table class="fo"><thead><tr><th rowspan="2">N° rollo</th><th rowspan="2">Ancho</th>';
-  FAMILIAS.forEach(([f,n])=>{ h+='<th colspan="'+defs.filter(d=>d.familia===f).length+'">'+n+'</th>'; });
-  h+='<th rowspan="2" class="tot vert"><span>Total de defecto por rollo</span></th></tr><tr>';
-  FAMILIAS.forEach(([f])=>defs.filter(d=>d.familia===f).forEach(d=>{ h+='<th class="vert"><span>'+esc(d.nombre)+'</span></th>'; }));
-  h+='</tr></thead><tbody>';
-  const orden=FAMILIAS.flatMap(([f])=>defs.filter(d=>d.familia===f));
-  rollos.forEach(r=>{
-    h+='<tr><td><b>'+esc(r.n)+'</b></td><td>'+val(r.ancho==null?'':num(r.ancho))+'</td>';
-    orden.forEach(d=>{ const v=(r.defectos||{})[d.cod]; h+='<td'+(v?' class="con"':'')+'>'+(v||'')+'</td>'; });
-    h+='<td class="tot">'+(r.total||0)+'</td></tr>';
+  /* Una sola tabla a todo el ancho: tipo de defecto, defecto y cantidad por rollo; solo los defectos que registró
+     la auditora (pedido de Christian, 28/10/2026, igual que el reporte de Artes) */
+  h+='<div class="sec">Defectos por rollo</div>';
+  const nr=rollos.length;
+  let fh='';
+  FAMILIAS.forEach(([f,n])=>{
+    const l=defs.filter(d=>d.familia===f && usados[d.cod]>0); if(!l.length) return;
+    const sub=l.reduce((s2,d)=>s2+usados[d.cod],0);
+    l.forEach((d,k)=>{
+      fh+='<tr>'+(k===0?'<td class="tipo" rowspan="'+l.length+'">'+esc(n.replace('Defectos de ','').replace(/^./,x=>x.toUpperCase()))+'<small>'+sub+' defecto'+(sub===1?'':'s')+'</small></td>':'')+
+          '<td class="dn">'+esc(d.nombre)+'</td>'+rollos.map(r=>{ const v=(r.defectos||{})[d.cod]; return '<td'+(v?' class="con"':'')+'>'+(v||'')+'</td>'; }).join('')+
+          '<td class="tot">'+usados[d.cod]+'</td></tr>';
+    });
   });
-  h+='</tbody><tfoot><tr><td colspan="2">Total</td>';
-  orden.forEach(d=>{ h+='<td>'+(usados[d.cod]||'')+'</td>'; });
-  h+='<td class="tot">'+totalGen+'</td></tr></tfoot></table></div>';
+  h+='<div class="tscroll"><table class="fo"><thead><tr><th class="izq">Tipo de defecto</th><th class="izq">Defecto</th>'+rollos.map(r=>'<th>Rollo '+esc(r.n)+'</th>').join('')+'<th class="tot">Total</th></tr>'+
+     '<tr class="anc"><td colspan="2" class="izq">Ancho del rollo</td>'+rollos.map(r=>'<td>'+val(r.ancho==null?'':num(r.ancho,2))+'</td>').join('')+'<td class="tot"></td></tr></thead>'+
+     '<tbody>'+(fh||'<tr><td colspan="'+(nr+3)+'" style="color:var(--stone);padding:10px">La muestra no tuvo defectos.</td></tr>')+'</tbody>'+
+     '<tfoot><tr><td colspan="2" class="izq">Total de defectos por rollo</td>'+rollos.map(r=>'<td>'+(r.total||0)+'</td>').join('')+'<td class="tot">'+totalGen+'</td></tr></tfoot></table></div>';
   // verificación + observaciones
   const pm={}; (D.param||[]).forEach(p=>pm[p.parametro]=p);
   h+='<div class="abajo"><div><div class="sec">Datos de tela y verificación de resultados</div>'+
      '<table class="ver"><thead><tr><th style="text-align:left">Parámetros</th><th>STD</th><th>Real lavado</th><th>Real vapor</th></tr></thead><tbody>'+
      D.parametros.map(p=>{ const x=pm[p]||{}; return '<tr><td>'+esc(p)+'</td><td>'+esc(x.std||'')+'</td><td>'+esc(x.lavado||'')+'</td><td>'+esc(x.vapor||'')+'</td></tr>'; }).join('')+
      '</tbody></table></div>'+
-     '<div><div class="sec">Observaciones</div><div class="obs">'+(c.observaciones?esc(c.observaciones):'<span style="color:var(--stone)">Sin observaciones.</span>')+'</div>'+
-     '<div class="firmas">'+
-       '<div class="firma"><b>'+val(c.auditor)+(c.auditor_codigo?' · '+esc(c.auditor_codigo):'')+'</b>Nombre / firma auditor</div>'+
-       '<div class="firma"><b>'+val(c.sup_tintoreria)+'</b>Nombre / firma sup. tintorería</div>'+
-       '<div class="firma"><b>'+val(c.sup_lives)+'</b>Nombre / firma sup. LIVES</div>'+
-     '</div></div></div>';
+     '<div class="com"><div class="sec">Observaciones</div><div class="obs">'+(c.observaciones?esc(c.observaciones):'<span style="color:var(--stone)">Sin observaciones.</span>')+'</div></div></div>';
   h+='<div class="pie"><span>Registrado por '+esc(c.registrado_por||c.auditor)+' el '+new Date(c.creado).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'})+
      (c.actualizado && Math.abs(new Date(c.actualizado)-new Date(c.creado))>60000?' · corregido el '+new Date(c.actualizado).toLocaleString('es-PE',{dateStyle:'short',timeStyle:'short'}):'')+'</span><span>FO-265</span></div>';
   h+='</div>';
