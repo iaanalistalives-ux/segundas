@@ -652,8 +652,20 @@ td{padding:8px 6px;border-bottom:1px solid var(--warm-light);vertical-align:top}
 tbody tr{cursor:pointer}
 tbody tr:hover td{background:var(--warm-light)}
 td.n{text-align:right;white-space:nowrap}
-td.obs{max-width:280px;color:#555}
-td.def{max-width:260px;color:var(--rose)}
+/* Defectos y Obs. se abren con su ícono para que la tabla no se descuadre con textos largos */
+.btn.vtxt{padding:3px 10px;min-height:30px;font-size:12px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.btn.vtxt.def{color:var(--rose)}
+.btn.vtxt.def:hover{border-color:var(--rose)}
+.sinTxt{color:var(--stone)}
+#ovTexto{position:fixed;inset:0;z-index:2147482400;background:rgba(14,59,54,.5);display:none;align-items:center;justify-content:center;padding:16px}
+#ovTexto.show{display:flex}
+#ovTexto .caja{background:var(--card);color:#333;border-radius:14px;max-width:480px;width:100%;max-height:80vh;overflow:auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+#ovTexto .tt{font-weight:700;font-size:16px;color:#0E3B36}
+#ovTexto .sb{font-size:12px;color:var(--stone);margin:2px 0 10px}
+#ovTexto ul{margin:0;padding-left:18px}
+#ovTexto li{margin:3px 0}
+#ovTexto .txt{white-space:pre-wrap;font-size:14px}
+#ovTexto .cerrarT{margin-top:14px;width:100%;min-height:44px}
 .st{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap}
 .btn.vpdf{padding:4px 12px;min-height:32px;font-size:12px;white-space:nowrap}
 .st.ap{background:#E7F4EF;color:var(--sage-dark)}.st.re{background:#FCEBEB;color:var(--rose)}.st.ov{background:#FEF3E2;color:var(--taupe)}
@@ -741,6 +753,8 @@ body.modalAbierta{overflow:hidden}
       <thead><tr><th>Fecha</th><th>Partida</th><th>Artículo</th><th>Grupo</th><th>Color</th><th style="text-align:right">Peso (kg)</th><th>Auditor</th><th>Estado</th><th>Defectos</th><th>Obs.</th><th>Tintorería</th><th>Reporte</th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
+    <div id="ovTexto" role="dialog" aria-modal="true"><div class="caja"><div class="tt" id="ovTt"></div><div class="sb" id="ovSb"></div><div id="ovCuerpo"></div>
+      <button type="button" class="btn cerrarT" id="ovCerrar">Cerrar</button></div></div>
     <div id="vacio" class="vacio" style="display:none"></div>
     <div id="tope" class="lsTope500" style="display:none"></div>
   </div>
@@ -862,8 +876,8 @@ function render(){
   $('tbody').innerHTML=lista.map(f=>{ const e=estado(f);
     return '<tr data-id="'+esc(f.id)+'"><td data-l="Fecha">'+fFecha(f.fecha)+'</td><td data-l="Partida"><b>'+esc(f.partida)+'</b></td><td data-l="Artículo">'+esc(f.tela)+'</td>'+
       '<td data-l="Grupo">'+esc(f.grupo)+'</td><td data-l="Color">'+esc(f.color)+'</td><td class="n" data-l="Peso (kg)">'+num(f.peso)+'</td><td data-l="Auditor">'+esc(f.auditor)+'</td>'+
-      '<td data-l="Estado"><span class="st '+e[0]+'">'+e[1]+(CAL[f.calidad]?' · '+CAL[f.calidad]:'')+'</span></td><td class="def" data-l="Defectos">'+esc(f.defectos||'')+'</td>'+
-      '<td class="obs" data-l="Obs.">'+esc(f.obs)+'</td><td data-l="Tintorería">'+esc(f.tintoreria)+'</td>'+
+      '<td data-l="Estado"><span class="st '+e[0]+'">'+e[1]+(CAL[f.calidad]?' · '+CAL[f.calidad]:'')+'</span></td><td data-l="Defectos">'+(f.defectos?'<button type="button" class="btn vtxt def" data-ver="def" title="Ver los defectos">🔍 '+num(f.total,0)+' defecto'+(+f.total===1?'':'s')+'</button>':'<span class="sinTxt">Sin defectos</span>')+'</td>'+
+      '<td data-l="Obs.">'+(f.obs?'<button type="button" class="btn vtxt" data-ver="obs" title="Ver la observación">📝 Ver</button>':'<span class="sinTxt">—</span>')+'</td><td data-l="Tintorería">'+esc(f.tintoreria)+'</td>'+
       '<td data-l="Reporte"><button type="button" class="btn vpdf" title="Ver el reporte FO-265 y compartirlo en PDF">Ver PDF</button></td></tr>'; }).join('');
   $('vacio').style.display=n?'none':'block';
   $('vacio').textContent=FILAS.length?'No hay auditorías con estos filtros. Cambia o limpia los filtros.':'Todavía no hay auditorías de tintorería registradas.';
@@ -872,7 +886,20 @@ function render(){
 ['fDesde','fHasta','fTin','fAud','fRes'].forEach(id=>$(id).addEventListener('change',render));
 $('fQ').addEventListener('input',()=>{ clearTimeout(render._t); render._t=setTimeout(render,200); });
 $('btnLimpiar').addEventListener('click',()=>{ ['fDesde','fHasta','fTin','fAud','fRes','fQ'].forEach(id=>$(id).value=''); render(); });
-$('tbody').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-id]'); if(tr) abrir('ver',tr.dataset.id); });
+$('tbody').addEventListener('click',e=>{ const tr=e.target.closest('tr[data-id]'); if(!tr) return;
+  const v=e.target.closest('[data-ver]'); if(v){ verTexto(v.dataset.ver,tr.dataset.id); return; }
+  abrir('ver',tr.dataset.id); });
+/* Defectos u observación de una auditoría, en una ventanita */
+function verTexto(tipo,id){
+  const f=FILAS.find(x=>x.id===id); if(!f) return;
+  $('ovTt').textContent=tipo==='def'?'Defectos encontrados':'Observaciones';
+  $('ovSb').textContent='Partida '+f.partida+' · '+fFecha(f.fecha)+(tipo==='def'?' · '+num(f.total,0)+' defectos en '+num(f.rollos,0)+' rollos de muestra':'');
+  $('ovCuerpo').innerHTML=tipo==='def'?'<ul>'+String(f.defectos||'').split(', ').map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'<div class="txt">'+esc(f.obs||'')+'</div>';
+  $('ovTexto').classList.add('show');
+}
+$('ovCerrar').addEventListener('click',()=>$('ovTexto').classList.remove('show'));
+$('ovTexto').addEventListener('click',e=>{ if(e.target.id==='ovTexto') $('ovTexto').classList.remove('show'); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('ovTexto').classList.remove('show'); });
 
 /* ---------- ventana dentro de la página ---------- */
 let M_SUCIO=false, M_REFRESCAR=false;
