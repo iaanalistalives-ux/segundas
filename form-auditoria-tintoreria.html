@@ -780,7 +780,7 @@ input.auto,select.auto{background:#eef7f4;border-color:#bfe3da}
     <div class="field">
       <label for="partida">Partida *</label>
       <div class="btnRow"><input id="partida" autocomplete="off" autocapitalize="characters" placeholder="Ej. 561012"><button type="button" class="addbtn btnBuscar" id="btnPartida">Buscar</button></div>
-      <div class="hint">Escríbela como está en la tarjeta del rollo. Los datos de la tela salen solos de la base; lo que no salga, se llena a mano.</div>
+      <div class="hint">Escríbela como está en la tarjeta del rollo. Los datos que salen de la base de partidas no se cambian; lo que no salga, se llena a mano.</div>
     </div>
     <div class="pFija"><span>✔ Partida <b id="pFijaTx"></b></span><button type="button" id="btnCambiarPartida">Cambiar</button></div>
     <div id="partidaRes"></div>
@@ -921,7 +921,7 @@ let S=nuevoEstado();
 let SUCIO=false, CARGANDO=false, GUARDANDO=false;
 
 function nuevoEstado(){
-  return {editId:'',token:nuevoToken(),rollos:[],dictamen:'',calidad:'',tono:'',partida_base:'',codigo_tela:'',abiertas:{}};
+  return {editId:'',token:nuevoToken(),rollos:[],dictamen:'',calidad:'',tono:'',partida_base:'',codigo_tela:'',fuente:'',bloq:[],abiertas:{}};
 }
 function nuevoToken(){ return 'AT'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -1020,18 +1020,20 @@ async function buscarPartida(){
   limpiarErr('partida');
   if(!q){ marcarErr('partida','Escribe la partida.'); return; }
   buscarPartida.ult=q;
+  quitarDatosBase();
   $('partidaRes').innerHTML='<div class="aviso ok">Buscando…</div>';
   let d;
   try{ d=await api('partida',{q:q}); }
-  catch(e){ $('partidaRes').innerHTML='<div class="aviso err">'+esc(e.message)+' Puedes llenar los datos a mano.</div>'; return; }
+  catch(e){ $('partidaRes').innerHTML='<div class="aviso err">'+esc(e.message)+' Vuelve a tocar Buscar.</div>'; return; }
   $('partida').value=d.partida||q;
   let h='';
   const op=d.opciones||[];
   if(!op.length){
+    S.fuente='manual';
     h+='<div class="aviso warn">Esta partida no está en la base ni se registró antes: llena los datos de la tela a mano.</div>';
   } else if(op.length===1){
     aplicarOpcion(op[0]); compactarPartida(true);
-    h+='<div class="aviso ok">'+(op[0].fuente==='partidas'?'Datos de la base de partidas.':'Datos del último registro de esta partida en el reporte diario de tintorería.')+' Corrígelos si no coinciden con la tarjeta.</div>';
+    h+='<div class="aviso ok">'+(op[0].fuente==='partidas'?'Datos de la base de partidas.':'Datos del último registro de esta partida en el reporte diario de tintorería.')+(op[0].fuente==='partidas'?' Lo que sale de la base no se cambia; si no coincide con la tarjeta, avisa a quien carga las partidas.':' Corrígelos si no coinciden con la tarjeta.')+'</div>';
   } else {
     h+='<div class="aviso warn"><b>Esta partida tiene '+op.length+' telas.</b> Toca la que estás auditando:';
     op.forEach((o,i)=>{ h+='<button type="button" class="opc" data-i="'+i+'"><b>'+esc(o.tela||'(sin nombre de tela)')+'</b><span>'+
@@ -1045,16 +1047,28 @@ async function buscarPartida(){
   $('partidaRes').innerHTML=h;
   $('partidaRes').querySelectorAll('.opc').forEach(b=>b.addEventListener('click',()=>{
     const o=op[+b.dataset.i]; aplicarOpcion(o); compactarPartida(true);
-    b.parentNode.outerHTML='<div class="aviso ok">'+esc(o.tela)+' · '+esc(o.color)+'. Datos de la base de partidas; corrígelos si no coinciden.</div>';
+    b.parentNode.outerHTML='<div class="aviso ok">'+esc(o.tela)+' · '+esc(o.color)+(o.fuente==='partidas'?'. Datos de la base de partidas; lo que sale de la base no se cambia.':'. Datos del reporte diario de tintorería; corrígelos si no coinciden.')+'</div>';
     guardarBorrador();
   }));
   guardarBorrador();
 }
+/* Lo que sale de la base de partidas no se escribe a mano; lo que no trae, sigue libre */
+const BASE=['tela','color','grupo','peso','op'];
+function bloquear(ids){
+  S.bloq=ids.slice();
+  BASE.forEach(id=>{ const on=ids.includes(id); $(id).readOnly=on; if(on) $(id).setAttribute('tabindex','-1'); else $(id).removeAttribute('tabindex'); });
+}
+function quitarDatosBase(){
+  (S.bloq||[]).forEach(id=>{ $(id).value=''; $(id).classList.remove('auto','err'); });
+  bloquear([]); S.fuente=''; S.partida_base=''; S.codigo_tela=''; $('pesoHint').textContent=''; actualizarChip();
+}
 function poner(id,v,auto){ const e=$(id); if(v===null||v===undefined||v==='') return; e.value=v; e.classList.toggle('auto',!!auto); }
 function aplicarOpcion(o){
-  S.partida_base=o.partida_base||''; S.codigo_tela=o.codigo_tela||'';
+  S.partida_base=o.partida_base||''; S.codigo_tela=o.codigo_tela||''; S.fuente=o.fuente||'';
+  bloquear([]);
   poner('tela',o.tela,1); poner('color',o.color,1); poner('grupo',o.grupo,1); poner('op',o.op,1);
-  if(o.peso){ poner('peso',String(Math.round(Number(o.peso)*10)/10),1); $('pesoHint').textContent=o.fuente==='partidas'?'Peso programado. Corrígelo si pesaste otro.':''; }
+  if(o.peso){ poner('peso',o.fuente==='partidas'?String(o.peso):String(Math.round(Number(o.peso)*10)/10),1); $('pesoHint').textContent=o.fuente==='partidas'?'Peso programado de la base.':''; }
+  if(o.fuente==='partidas') bloquear(BASE.filter(id=>$(id).value.trim()!==''));
   if(o.tintoreria && !$('tintoreria').value){ $('tintoreria').value=o.tintoreria; $('tintoreria').classList.add('auto'); }
   const s=o.std||{};
   if(s.ancho && !$('anchoStd').value) poner('anchoStd',s.ancho,1);
@@ -1215,6 +1229,7 @@ function validar(){
   TABS.forEach(t=>t.classList.remove('tabErr'));
   ['partida','tintoreria','fecha','peso','anchoStd','densStd','lote','muestra','auditor'].forEach(limpiarErr);
   if(!$('partida').value.trim()) fallo('partida','Escribe la partida.');
+  else if(!S.fuente) fallo('partida','Toca Buscar para traer los datos de la partida.');
   if(!$('tintoreria').value) fallo('tintoreria','Elige la tintorería.');
   const f=$('fecha').value; if(!f) fallo('fecha','Elige la fecha.'); else if(f>hoyISO()) fallo('fecha','La fecha no puede ser posterior a hoy.');
   [['peso','Escribe el peso en kilos, solo números (ej. 111 o 111.5).'],['anchoStd','Escribe solo números (ej. 140).'],['densStd','Escribe solo números (ej. 240).']].forEach(([id,m])=>{ if(!numOk($(id).value)) fallo(id,m); });
@@ -1295,7 +1310,7 @@ function limpiar(conservar){
   document.querySelectorAll('#params input').forEach(i=>{ i.value=''; delete i.dataset.auto; });
   document.querySelectorAll('.errTxt').forEach(n=>n.remove());
   $('partidaRes').innerHTML=''; $('pesoHint').textContent='';
-  S=nuevoEstado(); ['segTono','segDict','segCal'].forEach(id=>{ pintarSeg(id,''); $(id).classList.remove('err'); });
+  S=nuevoEstado(); bloquear([]); ['segTono','segDict','segCal'].forEach(id=>{ pintarSeg(id,''); $(id).classList.remove('err'); });
   if(conservar){ $('fecha').value=fijos.fecha||hoyISO(); $('tintoreria').value=fijos.tintoreria; $('supTin').value=fijos.supTin; $('supLives').value=fijos.supLives; if(INI&&INI.elige) $('auditor').value=fijos.auditor; }
   else $('fecha').value=hoyISO();
   $('modoEdicion').classList.remove('show'); $('borradorBar').classList.remove('show');
@@ -1340,7 +1355,8 @@ function llenar(d){
     provHil:c.prov_hilado,provTej:c.prov_teje,ruta:c.ruta_tela,fecha:c.fecha,lote:c.lote_rollos,muestra:c.muestra_rollos,obs:c.observaciones,supTin:c.sup_tintoreria,supLives:c.sup_lives};
   Object.keys(m).forEach(k=>{ $(k).value=(m[k]===null||m[k]===undefined)?'':m[k]; $(k).classList.remove('auto','err'); });
   if(INI.elige) $('auditor').value=c.auditor;
-  S=nuevoEstado(); S.partida_base=c.partida_base; S.codigo_tela=c.codigo_tela; S.tono=c.tono; S.dictamen=c.dictamen; S.calidad=c.calidad;
+  S=nuevoEstado(); S.partida_base=c.partida_base; S.codigo_tela=c.codigo_tela; S.fuente='guardada'; S.tono=c.tono;
+  bloquear(c.partida_base?BASE.filter(id=>$(id).value.trim()!==''):[]); S.dictamen=c.dictamen; S.calidad=c.calidad;
   S.rollos=(d.rollos||[]).map(r=>({n:String(r.n),ancho:r.ancho==null?'':String(r.ancho),d:Object.assign({},r.defectos||{})}));
   if(!S.rollos.length) S.rollos=[rolloVacio(1)];
   pintarSeg('segTono',S.tono); pintarSeg('segDict',S.dictamen); pintarSeg('segCal',S.calidad);
@@ -1371,7 +1387,7 @@ function restaurarBorrador(){
   CARGANDO=true;
   CAMPOS.forEach(id=>{ if(o.campos[id]!=null) $(id).value=o.campos[id]; });
   if(INI.elige && o.campos.auditor) $('auditor').value=o.campos.auditor;
-  S=Object.assign(nuevoEstado(),o.S);
+  S=Object.assign(nuevoEstado(),o.S); bloquear(S.bloq||[]);
   (o.params||[]).forEach(p=>{ const row=document.querySelector('#params .param[data-p="'+CSS.escape(p.parametro)+'"]'); if(!row) return;
     row.querySelector('[data-k=std]').value=p.std||''; row.querySelector('[data-k=lavado]').value=p.lavado||''; row.querySelector('[data-k=vapor]').value=p.vapor||''; });
   pintarSeg('segTono',S.tono); pintarSeg('segDict',S.dictamen); pintarSeg('segCal',S.calidad);
