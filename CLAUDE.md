@@ -7,7 +7,7 @@ Ocho pantallas que salen de **dos plantillas**; cada archivo solo cambia una o d
 
 Tablero "Indicadores de Calidad Textil" (solo consulta, Chart.js; `SOLO_SEC`):
 - `corte.html` (s2) — rechazos de Corte: tendencia, responsables, frente a lo producido y detalle.
-- `defectos.html` (s3) — seguimiento de defectos textiles: recurrencia, trazabilidad, clientes y telas, evolución.
+- `defectos.html` (s3) — seguimiento de defectos textiles: recurrencia, trazabilidad, clientes y telas, evolución. Al tocar una fila de los gráficos de recurrencia, clientes o telas (nombre o barra) se abre sola la pestaña Trazabilidad con las planillas de ese defecto, cliente o tela; sin elección muestra el defecto más recurrente (24/11/2026).
 - `tintoreria.html` (s4) — reporte diario de tintorería: estado, tintorerías, evolución, detalle. Excel de partidas desde el detalle.
 - Los tres permiten descargar una copia HTML del tablero con los datos ("Exportar") e imprimir.
 

@@ -2246,7 +2246,13 @@ function secDefectos(){
     {type:'line',label:'Frecuencia acumulada',data:accA,borderColor:C.slate,backgroundColor:C.slate,
      borderWidth:2,tension:.25,pointRadius:2.5,yAxisID:'y1'}]},
     options:{indexAxis:'y',layout:{padding:{right:52}},
-      onClick:function(e,els){ if(els.length){ ST.defSel=top[els[0].index]; traza(); } },
+      onClick:function(e,els,ch){
+        /* vale tocar toda la fila (nombre, barra o el espacio a su derecha), no solo la barra delgada */
+        var fi=trzFila(e,els,ch);
+        if(fi>=0 && !(restoN>0 && fi>=18)){ ST.defSel=top[fi]; ST.trzSel=null; traza();
+        /* la trazabilidad vive en la pestaña siguiente: se abre sola al elegir la barra */
+        var bt=document.querySelectorAll('#s3_tabs button')[1]; if(bt) bloque('s3',1,bt); } },
+      onHover:function(e,els){ var cv=e&&e.native&&e.native.target; if(cv) cv.style.cursor=els.length?'pointer':'default'; },
       plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
         barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
         tooltip:{callbacks:{label:function(c){ return c.datasetIndex===0
@@ -2254,10 +2260,14 @@ function secDefectos(){
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},
         y:{grid:{display:false}},y1:{display:false}}},
     plugins:[barLabels]});
+  trzNombres('c_pareto', function(i){ if(restoN>0 && i>=18) return;
+    ST.defSel=top[i]; ST.trzSel=null; traza();
+    var bt=document.querySelectorAll('#s3_tabs button')[1]; if(bt) bloque('s3',1,bt); });
   el('f_pareto').textContent = totDef>0
     ? 'Base: '+fn(totDef)+' incidencias del período. Las barras suman exactamente 100.00%.'
     : 'Sin defectos registrados en el período.';
-  if(ST.defSel && top.indexOf(ST.defSel)<0) ST.defSel=null;
+  /* sin elección (o si el filtro la dejó fuera), la trazabilidad muestra el defecto más recurrente */
+  if(!ST.defSel || top.indexOf(ST.defSel)<0) ST.defSel=ks.length?ks[0]:null;
   traza();
 
   sinVerdict('v_s3');
@@ -2288,12 +2298,16 @@ function secDefectos(){
   mk('c_g3',{type:'bar',data:{labels:gk3,datasets:[{data:gk3.map(function(k){
       return sum(gg.get(k),function(r){return r.total;})/(totDef||1)*100; }),
     backgroundColor:C.rose,borderRadius:4,barThickness:16}]},
-    options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
+    options:{indexAxis:'y',layout:{padding:{right:46}},
+      onClick:function(e,els,ch){ var i=trzFila(e,els,ch); if(i>=0) trzAbrir({t:'cli',k:gk3[i],nom:'Cliente '+gk3[i]}); },
+      onHover:trzMano,
+      plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
       tooltip:{callbacks:{label:function(c){ var s=gg.get(c.label);
         return fn(sum(s,function(r){return r.total;}))+' defectos en '+s.length+' planillas'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},y:{grid:{display:false}}}},
     plugins:[barLabels]});
+  trzNombres('c_g3', function(i){ trzAbrir({t:'cli',k:gk3[i],nom:'Cliente '+gk3[i]}); });
 
   var TELA2={}; DEF.cab.forEach(function(r){ if(r.cod_tela && r.articulo && !TELA2[r.cod_tela]) TELA2[r.cod_tela]=r.articulo; });
   /* el resumen de Corte ya no trae filas de liquidación: el nombre de la tela
@@ -2305,13 +2319,19 @@ function secDefectos(){
   mk('c_t3',{type:'bar',data:{labels:tk3.map(function(k){ var d=TELA2[k]; return d?[k,d.substring(0,28)]:k; }),
     datasets:[{data:tk3.map(function(k){ return sum(gt3.get(k),function(r){return r.total;})/(totDef||1)*100; }),
       backgroundColor:C.slate,borderRadius:4,barThickness:16}]},
-    options:{indexAxis:'y',layout:{padding:{right:46}},plugins:{legend:{display:false},
+    options:{indexAxis:'y',layout:{padding:{right:46}},
+      onClick:function(e,els,ch){ var i=trzFila(e,els,ch); if(i>=0){ var k=tk3[i];
+        trzAbrir({t:'tela',k:k,nom:'Tela '+k+(TELA2[k]?' · '+TELA2[k]:'')}); } },
+      onHover:trzMano,
+      plugins:{legend:{display:false},
       barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
       tooltip:{callbacks:{title:function(c){ var k=tk3[c[0].dataIndex]; return k+(TELA2[k]?' · '+TELA2[k]:''); },
         label:function(c){ var k=tk3[c.dataIndex]; return fn(sum(gt3.get(k),function(r){return r.total;}))+' defectos'; }}}},
       scales:{x:{min:0,grid:{color:C.wl},ticks:{callback:function(v){return v+'%';}}},
         y:{grid:{display:false},ticks:{font:{size:10}}}}},
     plugins:[barLabels]});
+  trzNombres('c_t3', function(i){ var k=tk3[i];
+    trzAbrir({t:'tela',k:k,nom:'Tela '+k+(TELA2[k]?' · '+TELA2[k]:'')}); });
 
   var cmp3=(ST.anio==='CMP');
   var anios3=cmp3?ANIOS:[ST.anio];
@@ -2355,7 +2375,55 @@ function secDefectos(){
   }else mk('c_tend3',realzarLineas(cfg3));
 }
 
+/* fila tocada en un gráfico de barras horizontales: vale el nombre, la barra o el espacio a su derecha */
+function trzFila(e,els,ch){
+  if(els.length) return els[0].index;
+  if(!ch || !e || !ch.scales || !ch.scales.y) return -1;
+  var i=Math.round(ch.scales.y.getValueForPixel(e.y));
+  return (i>=0 && i<ch.data.labels.length) ? i : -1;
+}
+/* el gráfico solo avisa los clics dentro de su área: esto toma los que caen sobre el nombre de la fila */
+function trzNombres(id, alElegir){
+  var ch=window.Chart && Chart.getChart(id); if(!ch) return;
+  function fila(ev){
+    var r=ch.canvas.getBoundingClientRect(), x=ev.clientX-r.left, y=ev.clientY-r.top, a=ch.chartArea;
+    if(!a || !ch.scales || !ch.scales.y || x>=a.left || y<a.top || y>a.bottom) return -1;
+    var i=Math.round(ch.scales.y.getValueForPixel(y));
+    return (i>=0 && i<ch.data.labels.length) ? i : -1;
+  }
+  ch.canvas.onclick=function(ev){ var i=fila(ev); if(i>=0) alElegir(i); };
+  ch.canvas.onmousemove=function(ev){ if(fila(ev)>=0) ch.canvas.style.cursor='pointer'; };
+}
+function trzMano(e,els){ var cv=e&&e.native&&e.native.target; if(cv) cv.style.cursor=els.length?'pointer':'default'; }
+/* elegir un cliente o una tela abre la Trazabilidad con sus planillas */
+function trzAbrir(sel){
+  ST.trzSel=sel; traza();
+  var bt=document.querySelectorAll('#s3_tabs button')[1]; if(bt) bloque('s3',1,bt);
+}
+function trazaGrupo(g){
+  var cab=DEF.cab.filter(enP).filter(function(r){
+    return g.t==='cli' ? (r.cliente||r.grupo)===g.k : r.cod_tela===g.k; });
+  if(!cab.length) return false;
+  var porId={}; DEF.det.forEach(function(r){ (porId[r.id]=porId[r.id]||[]).push(r); });
+  cab.sort(function(a,b){ return b.total-a.total; });
+  var tot=sum(cab,function(r){return r.total;});
+  el('tz_t').textContent='Trazabilidad · '+g.nom;
+  el('tz_h').textContent=fn(tot)+' incidencias en '+cab.length+' planilla(s) · '+etiqueta();
+  el('t_traza').innerHTML='<tr><th>Fecha</th><th>O/Corte</th><th>Partida</th><th>Grupo</th><th>Cód. tela</th>'+
+    '<th>Artículo</th><th>Color</th><th>Defectos</th><th class="num">Incidencias</th><th class="num">Prendas</th></tr>'+
+    cab.map(function(c){
+      var dd=(porId[c.id]||[]).slice().sort(function(a,b){ return b.cant-a.cant; });
+      var txt=dd.slice(0,3).map(function(x){ return x.defecto+' ('+fn(x.cant)+')'; }).join(', ')+
+        (dd.length>3?' y '+(dd.length-3)+' más':'');
+      return '<tr><td>'+fdmy(c.fecha)+'</td><td><b>'+esc(c.oc)+'</b></td><td>'+esc(c.partida)+'</td>'+
+        '<td>'+esc(c.grupo)+'</td><td>'+esc(c.cod_tela)+'</td><td>'+esc(String(c.articulo||'').substring(0,34))+'</td>'+
+        '<td>'+esc(c.color)+'</td><td>'+esc(txt)+'</td><td class="num">'+fn(c.total)+'</td><td class="num">'+fn(c.prendas)+'</td></tr>';
+    }).join('');
+  return true;
+}
 function traza(){
+  /* si se eligió un cliente o una tela, manda esa elección; si el filtro la dejó sin datos, vuelve al defecto */
+  if(ST.trzSel){ if(trazaGrupo(ST.trzSel)) return; ST.trzSel=null; }
   var d=ST.defSel;
   if(!d){ el('tz_t').textContent='Trazabilidad del defecto';
     el('tz_h').textContent='Selecciona una barra del gráfico para ver en qué telas, grupos y O/Corte aparece.';
