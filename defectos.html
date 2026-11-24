@@ -820,6 +820,12 @@ html.lsPoOn body>*:not(#lsPo){visibility:hidden!important}
     color:#fff;border-radius:8px;padding:7px 15px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
   .modal .mh .cerrar:hover{background:rgba(255,255,255,.22);}
   .modal .mb{padding:18px 20px 24px;}
+  #modalTz .mh > div:first-child{flex:1;}
+  #modalTz .mb .panel{margin-bottom:0;}
+  .tz-vacia{display:none!important;}
+  #tz_graf{margin-bottom:14px;}
+  #tz_graf .tz-gt{font-size:12.5px;font-weight:700;color:var(--stone);margin-bottom:6px;}
+  #tz_graf .cwrap{height:230px;}
   .modal .filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px;}
   .modal .filtros .et{font-size:12.5px;color:var(--stone);font-weight:700;}
 
@@ -1032,14 +1038,6 @@ html.lsPoOn body>*:not(#lsPo){visibility:hidden!important}
       </div>
 
       <div class="tabpane">
-      <div class="panel">
-        <div class="pt" id="tz_t">Trazabilidad del defecto</div>
-        <div class="ph" id="tz_h">Selecciona una barra del gráfico anterior</div>
-        <div class="tscroll"><table id="t_traza"></table></div>
-      </div>
-      </div>
-
-      <div class="tabpane">
       <div class="grid2">
         <div class="panel"><div class="pt">Clasificación de Defectos por Cliente</div>
           <div class="ph">Participación de cada cliente en el total de defectos</div>
@@ -1126,6 +1124,29 @@ html.lsPoOn body>*:not(#lsPo){visibility:hidden!important}
     </details>
 
     <div class="foot" id="pie"></div>
+
+    <div class="tz-vacia" id="tz_casa">
+      <div class="panel" id="tz_panel">
+        <div class="pt" id="tz_t">Trazabilidad</div>
+        <div class="ph" id="tz_h"></div>
+        <div class="grid2 no-print" id="tz_graf">
+          <div><div class="tz-gt" id="tz_g1t"></div><div class="cwrap"><canvas id="tz_c1"></canvas></div></div>
+          <div><div class="tz-gt" id="tz_g2t"></div><div class="cwrap"><canvas id="tz_c2"></canvas></div></div>
+        </div>
+        <div class="tscroll"><table id="t_traza"></table></div>
+      </div>
+    </div>
+
+    <div class="modal" id="modalTz">
+      <div class="box">
+        <div class="mh">
+          <div><div class="mt">Trazabilidad</div></div>
+          <button class="btn no-print" type="button" id="tz_excel">Descargar Excel</button>
+          <button class="cerrar" type="button" id="tz_cerrar" style="margin-left:0">Cerrar</button>
+        </div>
+        <div class="mb" id="tz_cuerpo"></div>
+      </div>
+    </div>
 
     <div class="modal" id="modal">
       <div class="box">
@@ -1610,7 +1631,7 @@ function guardarSec(sec,res){
 var BLOQUES = {
   s1:['Tendencia','Defectos','Clientes y áreas','Resumen mensual'],
   s2:['Tendencia','Responsables','Frente a lo producido','Detalle'],
-  s3:['Recurrencia','Trazabilidad','Clientes y telas','Evolución'],
+  s3:['Recurrencia','Clientes y telas','Evolución'],
   s4:['Estado','Tintorerías','Evolución','Detalle']
 };
 function abrirSec(sec, primera){
@@ -2251,7 +2272,7 @@ function secDefectos(){
         var fi=trzFila(e,els,ch);
         if(fi>=0 && !(restoN>0 && fi>=18)){ ST.defSel=top[fi]; ST.trzSel=null; traza();
         /* la trazabilidad vive en la pestaña siguiente: se abre sola al elegir la barra */
-        var bt=document.querySelectorAll('#s3_tabs button')[1]; if(bt) bloque('s3',1,bt); } },
+        trzVentana(); } },
       onHover:function(e,els){ var cv=e&&e.native&&e.native.target; if(cv) cv.style.cursor=els.length?'pointer':'default'; },
       plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}},
         barLabels:{fmt:function(v){return v.toFixed(1)+'%';}},
@@ -2262,12 +2283,11 @@ function secDefectos(){
     plugins:[barLabels]});
   trzNombres('c_pareto', function(i){ if(restoN>0 && i>=18) return;
     ST.defSel=top[i]; ST.trzSel=null; traza();
-    var bt=document.querySelectorAll('#s3_tabs button')[1]; if(bt) bloque('s3',1,bt); });
+    trzVentana(); });
   el('f_pareto').textContent = totDef>0
     ? 'Base: '+fn(totDef)+' incidencias del período. Las barras suman exactamente 100.00%.'
     : 'Sin defectos registrados en el período.';
-  /* sin elección (o si el filtro la dejó fuera), la trazabilidad muestra el defecto más recurrente */
-  if(!ST.defSel || top.indexOf(ST.defSel)<0) ST.defSel=ks.length?ks[0]:null;
+  if(ST.defSel && top.indexOf(ST.defSel)<0) ST.defSel=null;
   traza();
 
   sinVerdict('v_s3');
@@ -2398,7 +2418,20 @@ function trzMano(e,els){ var cv=e&&e.native&&e.native.target; if(cv) cv.style.cu
 /* elegir un cliente o una tela abre la Trazabilidad con sus planillas */
 function trzAbrir(sel){
   ST.trzSel=sel; traza();
-  var bt=document.querySelectorAll('#s3_tabs button')[1]; if(bt) bloque('s3',1,bt);
+  trzVentana();
+}
+/* Ventana emergente de la trazabilidad (ya no hay pestaña). El panel se guarda oculto junto a la
+   ventana y entra en ella al abrir: hay una sola tabla, que es la que también sale en el Excel
+   (hoja Resumen) con lo último que se eligió. */
+function trzVentana(){
+  var m=el('modalTz'), p=el('tz_panel'); if(!m || !p) return;
+  if(!m.classList.contains('on')){ el('tz_cuerpo').appendChild(p); m.classList.add('on'); }
+  m.scrollTop=0;
+  var x=el('tz_excel'); if(x) x.style.display=document.getElementById('lsXlsBtn')?'':'none';
+}
+function trzCerrar(){
+  var m=el('modalTz'), p=el('tz_panel'); if(!m || !m.classList.contains('on')) return;
+  m.classList.remove('on'); if(p) el('tz_casa').appendChild(p);
 }
 function trazaGrupo(g){
   var cab=DEF.cab.filter(enP).filter(function(r){
@@ -2419,15 +2452,22 @@ function trazaGrupo(g){
         '<td>'+esc(c.grupo)+'</td><td>'+esc(c.cod_tela)+'</td><td>'+esc(String(c.articulo||'').substring(0,34))+'</td>'+
         '<td>'+esc(c.color)+'</td><td>'+esc(txt)+'</td><td class="num">'+fn(c.total)+'</td><td class="num">'+fn(c.prendas)+'</td></tr>';
     }).join('');
+  var porDef=[]; cab.forEach(function(c){ (porId[c.id]||[]).forEach(function(x){ porDef.push({k:x.defecto, v:x.cant}); }); });
+  if(g.t==='cli')
+    trzGraficos('Defectos más frecuentes', porDef, C.taupe,
+                'Telas con más incidencias', cab.map(function(c){ return {k:c.cod_tela, v:c.total}; }), C.slate);
+  else
+    trzGraficos('Defectos más frecuentes', porDef, C.taupe,
+                'Grupos con más incidencias', cab.map(function(c){ return {k:c.grupo, v:c.total}; }), C.rose);
   return true;
 }
 function traza(){
   /* si se eligió un cliente o una tela, manda esa elección; si el filtro la dejó sin datos, vuelve al defecto */
-  if(ST.trzSel){ if(trazaGrupo(ST.trzSel)) return; ST.trzSel=null; }
+  if(ST.trzSel){ if(trazaGrupo(ST.trzSel)){ trzEstado(true); return; } ST.trzSel=null; }
   var d=ST.defSel;
-  if(!d){ el('tz_t').textContent='Trazabilidad del defecto';
-    el('tz_h').textContent='Selecciona una barra del gráfico para ver en qué telas, grupos y O/Corte aparece.';
-    el('t_traza').innerHTML=''; return; }
+  if(!d){ el('tz_t').textContent='Trazabilidad'; el('tz_h').textContent='';
+    el('t_traza').innerHTML=''; trzEstado(false); trzCerrar(); return; }
+  trzEstado(true);
   var cab=DEF.cab.filter(enP), mapa={};
   cab.forEach(function(r){ mapa[r.id]=r; });
   var lin=DEF.det.filter(function(r){ return mapa[r.id] && r.defecto===d; })
@@ -2443,6 +2483,27 @@ function traza(){
         '<td>'+esc(c.grupo)+'</td><td>'+esc(c.cod_tela)+'</td><td>'+esc(c.articulo.substring(0,34))+'</td>'+
         '<td>'+esc(c.color)+'</td><td class="num">'+fn(x.cant)+'</td><td class="num">'+fn(c.prendas)+'</td></tr>';
     }).join('') || '<tr><td colspan="9">Sin registros en el período.</td></tr>');
+  trzGraficos('Telas donde más aparece', lin.map(function(x){ return {k:x.c.cod_tela, v:x.cant}; }), C.slate,
+              'Grupos donde más aparece', lin.map(function(x){ return {k:x.c.grupo, v:x.cant}; }), C.rose);
+}
+/* el panel guardado solo cuenta (Excel, impresión) cuando hay algo elegido */
+function trzEstado(hay){ var c=el('tz_casa'); if(c) c.className=hay?'tabpane':'tz-vacia'; }
+/* dos resúmenes sobre la tabla: dónde se concentran las incidencias de lo elegido (8 primeros) */
+function trzGraficos(t1, d1, col1, t2, d2, col2){
+  function uno(idC, idT, tit, datos, color){
+    var ac={}; datos.forEach(function(x){ var k=T(x.k)||'(sin dato)'; ac[k]=(ac[k]||0)+(x.v||0); });
+    var ks=Object.keys(ac).sort(function(a,b){ return ac[b]-ac[a]; }), n=ks.length;
+    ks=ks.slice(0,8);
+    el(idT).textContent=tit+(n>8?' · 8 primeros de '+n:'');
+    mk(idC,{type:'bar',data:{labels:ks,datasets:[{data:ks.map(function(k){ return ac[k]; }),
+        backgroundColor:color,borderRadius:4,barThickness:14}]},
+      options:{indexAxis:'y',maintainAspectRatio:false,layout:{padding:{right:46}},
+        plugins:{legend:{display:false},barLabels:{fmt:function(v){ return fn(v); }},
+          tooltip:{callbacks:{label:function(c){ return fn(c.parsed.x)+' incidencias'; }}}},
+        scales:{x:{min:0,grid:{color:C.wl},ticks:{precision:0}},y:{grid:{display:false},ticks:{font:{size:10}}}}},
+      plugins:[barLabels]});
+  }
+  uno('tz_c1','tz_g1t',t1,d1,col1); uno('tz_c2','tz_g2t',t2,d2,col2);
 }
 
 /* ================= 4 · TINTORERÍA ================= */
@@ -3145,6 +3206,13 @@ try{
 }catch(e){}
 
 el('mo_cerrar').onclick=cerrarDetalle;
+if(el('modalTz')){
+  el('tz_cerrar').onclick=trzCerrar;
+  el('modalTz').onclick=function(e){ if(e.target===el('modalTz')) trzCerrar(); };
+  el('tz_excel').onclick=function(){ var b=document.getElementById('lsXlsBtn'); if(b) b.click(); };
+  try{ document.addEventListener('keydown',function(e){ if(e.key==='Escape') trzCerrar(); });
+       window.addEventListener('beforeprint',trzCerrar); }catch(e){}
+}
 el('modal').onclick=function(e){ if(e.target===el('modal')) cerrarDetalle(); };
 el('mo_tint').onchange=function(){ MO.tint=T(el('mo_tint').value); pintarDetalle(); pedirTablaModal(); };
 el('mo_fam').onchange=function(){ MO.fam=T(el('mo_fam').value); pintarDetalle(); };
